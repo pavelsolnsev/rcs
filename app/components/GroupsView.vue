@@ -15,6 +15,7 @@ const emit = defineEmits<{
   ]
   seedPlayoff: []
   swapTeams: [p: { teamA: number; teamB: number }]
+  delete: [id: number]
 }>()
 
 const teamMap = computed<Record<number, Team>>(() => {
@@ -105,6 +106,7 @@ function onPickSwapTeam(teamId: number) {
           :swap-pick="swapPick"
           @save="emit('save', $event)"
           @pick="onPickSwapTeam"
+          @delete="emit('delete', $event)"
         />
       </div>
     </section>
@@ -128,6 +130,7 @@ function onPickSwapTeam(teamId: number) {
         :teams="teams"
         :editable="editable"
         @save="emit('save', $event)"
+        @delete="emit('delete', $event)"
       />
       <div v-else class="card p-6 text-center text-sm text-slate-500">
         {{

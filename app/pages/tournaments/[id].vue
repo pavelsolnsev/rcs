@@ -208,6 +208,40 @@ async function onTeamsChanged() {
   if (editMode.value) dirty.value = true
   await refresh()
 }
+
+async function addMatch(payload: {
+  bracket: string
+  round: number
+  label: string | null
+  bestOf: number
+  teamAId: number | null
+  teamBId: number | null
+}) {
+  try {
+    await $fetch(`/api/tournaments/${id}/matches`, { method: 'POST', body: payload })
+    if (editMode.value) dirty.value = true
+    await refresh()
+  } catch (e: any) {
+    error(e?.data?.statusMessage || 'Не удалось добавить матч')
+  }
+}
+
+async function deleteMatch(matchId: number) {
+  const ok = await confirm({
+    title: 'Удалить матч?',
+    message: 'Действие необратимо — результат матча будет потерян.',
+    confirmText: 'Удалить',
+    tone: 'danger',
+  })
+  if (!ok) return
+  try {
+    await $fetch(`/api/matches/${matchId}`, { method: 'DELETE' })
+    if (editMode.value) dirty.value = true
+    await refresh()
+  } catch (e: any) {
+    error(e?.data?.statusMessage || 'Не удалось удалить матч')
+  }
+}
 </script>
 
 <template>
@@ -345,6 +379,8 @@ async function onTeamsChanged() {
         @save="saveMatch"
         @seed-playoff="seedPlayoff"
         @swap-teams="swapGroupTeams"
+        @add-match="addMatch"
+        @delete-match="deleteMatch"
       />
     </section>
 

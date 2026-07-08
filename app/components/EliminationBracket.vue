@@ -12,6 +12,7 @@ const emit = defineEmits<{
   save: [
     p: { id: number; scoreA: number; scoreB: number; status: string; bestOf?: number; maps?: unknown },
   ]
+  delete: [id: number]
 }>()
 
 const teamMap = computed<Record<number, Team>>(() => {
@@ -88,7 +89,13 @@ const arrowId = `arrow-${Math.random().toString(36).slice(2, 8)}`
           {{ col.title }}
         </div>
         <div v-for="m in col.matches" :key="m.id" :data-match-id="m.id" class="w-48 shrink-0 sm:w-56">
-          <MatchCard :match="m" :team-map="teamMap" :editable="editable" @save="emit('save', $event)" />
+          <MatchCard
+            :match="m"
+            :team-map="teamMap"
+            :editable="editable"
+            @save="emit('save', $event)"
+            @delete="emit('delete', $event)"
+          />
         </div>
       </div>
     </div>

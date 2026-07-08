@@ -44,6 +44,7 @@ const emit = defineEmits<{
       maps: MapRow[]
     },
   ]
+  delete: [id: number]
 }>()
 
 // Формат команд турнира (для пула карт) — прокидывается со страницы турнира
@@ -121,6 +122,10 @@ function onEditorSave(p: {
   bestOf: number
 }) {
   emit('save', { id: props.match.id, ...p })
+  closeEdit()
+}
+function onEditorDelete() {
+  emit('delete', props.match.id)
   closeEdit()
 }
 </script>
@@ -261,6 +266,7 @@ function onEditorSave(p: {
       :status="match.status"
       @save="onEditorSave"
       @cancel="closeEdit"
+      @delete="onEditorDelete"
     />
     </div>
   </div>

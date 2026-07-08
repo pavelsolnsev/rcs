@@ -115,8 +115,16 @@ export async function persistRows(db: Db, tournamentId: number, rows: BracketRow
 export function championOf(
   ms: { bracket: string; round: number; winnerTeamId: number | null }[],
 ): number | null {
-  const pick = (arr: typeof ms) =>
-    arr.length ? [...arr].sort((a, b) => b.round - a.round)[0]!.winnerTeamId ?? null : null
+  // Финал — это ровно один матч на верхнем раунде. Если их несколько (финал
+  // удалили или он ещё не сыгран, а на бой вышло несколько полуфиналов) —
+  // чемпион не определён, а не выбирается случайно.
+  const pick = (arr: typeof ms) => {
+    if (!arr.length) return null
+    const maxRound = Math.max(...arr.map((m) => m.round))
+    const top = arr.filter((m) => m.round === maxRound)
+    if (top.length !== 1) return null
+    return top[0]!.winnerTeamId ?? null
+  }
   // Если игрался ресет-матч и в нём есть победитель — он и чемпион.
   const reset = ms.filter((m) => m.bracket === 'grand_final_reset' && m.winnerTeamId)
   if (reset.length) return pick(reset)

@@ -63,6 +63,14 @@ export interface AddMediaInput {
   thumbUrl?: string | null
   caption?: string | null
 }
+export interface AddMatchInput {
+  bracket?: string
+  round?: number
+  label?: string | null
+  bestOf?: number
+  teamAId?: number | null
+  teamBId?: number | null
+}
 export interface Repo {
   readonly kind: 'mysql' | 'memory'
   listTournaments(): Promise<any[]>
@@ -73,6 +81,8 @@ export interface Repo {
   deleteTournament(id: number): Promise<void>
   finishTournament(id: number): Promise<{ championTeamId: number | null }>
   updateMatch(id: number, patch: MatchPatch): Promise<{ winnerTeamId: number | null }>
+  addMatch(tournamentId: number, input: AddMatchInput): Promise<{ id: number }>
+  deleteMatch(id: number): Promise<void>
   seedPlayoff(id: number, qualifiers: number): Promise<{ seeded: number }>
   swapGroupTeams(id: number, teamAId: number, teamBId: number): Promise<void>
   addTeam(tournamentId: number, input: AddTeamInput): Promise<{ id: number }>
@@ -144,6 +154,30 @@ function groupsMembership(
     placed.add(id)
   }
   return groups.filter((g) => g.length > 0)
+}
+
+/**
+ * Решает, куда именно вставить матч, добавленный вручную (для дозаполнения
+ * сетки задним числом — например, несыгранного финала или бонусного матча).
+ * Если раздел/раунд не заданы — подставляет продолжение существующей сетки.
+ */
+function resolveNewMatchPlacement(
+  existing: { bracket: string; round: number }[],
+  input: AddMatchInput,
+  defaultBestOf: number,
+) {
+  const bracket =
+    input.bracket && existing.some((m) => m.bracket === input.bracket)
+      ? input.bracket
+      : (existing[0]?.bracket ?? 'winners')
+  const sameBracket = existing.filter((m) => m.bracket === bracket)
+  const round =
+    Number(input.round) > 0
+      ? Number(input.round)
+      : sameBracket.reduce((mx, m) => Math.max(mx, m.round), 0) + 1
+  const position = sameBracket.filter((m) => m.round === round).length
+  const bestOf = [1, 3, 5].includes(Number(input.bestOf)) ? Number(input.bestOf) : defaultBestOf
+  return { bracket, round, position, bestOf }
 }
 
 /** Меняет две команды местами в наборе групповых матчей и сбрасывает затронутые результаты. */
@@ -383,6 +417,66 @@ class MysqlRepo implements Repo {
         .where(eq(tournaments.id, m.tournamentId))
     }
     return { winnerTeamId }
+  }
+
+  async addMatch(tournamentId: number, input: AddMatchInput) {
+    const [t] = await this.db.select().from(tournaments).where(eq(tournaments.id, tournamentId))
+    if (!t) throw createError({ statusCode: 404, statusMessage: 'Турнир не найден' })
+    const existing = await this.db.select().from(matches).where(eq(matches.tournamentId, tournamentId))
+    const { bracket, round, position, bestOf } = resolveNewMatchPlacement(existing, input, t.boFinal)
+
+    const teamRows = await this.db.select().from(teams).where(eq(teams.tournamentId, tournamentId))
+    const teamIds = new Set(teamRows.map((x) => x.id))
+    const teamAId = input.teamAId && teamIds.has(input.teamAId) ? input.teamAId : null
+    const teamBId = input.teamBId && teamIds.has(input.teamBId) ? input.teamBId : null
+
+    const [created] = await this.db
+      .insert(matches)
+      .values({
+        tournamentId,
+        bracket,
+        round,
+        position,
+        teamAId,
+        teamBId,
+        bestOf,
+        status: 'pending',
+        label: input.label?.trim() || null,
+      })
+      .$returningId()
+    return { id: created!.id }
+  }
+
+  async deleteMatch(id: number) {
+    const [m] = await this.db.select().from(matches).where(eq(matches.id, id))
+    if (!m) throw createError({ statusCode: 404, statusMessage: 'Матч не найден' })
+
+    // Разрываем продвижение вперёд (как при откате в pending).
+    for (const p of progression(m, false)) {
+      const set = p.slot === 'a' ? { teamAId: p.teamId } : { teamBId: p.teamId }
+      await this.db.update(matches).set(set).where(eq(matches.id, p.matchId))
+    }
+    // Разрываем ссылки других матчей на удаляемый (иначе будут вести в никуда).
+    await this.db
+      .update(matches)
+      .set({ nextMatchId: null, nextSlot: null })
+      .where(eq(matches.nextMatchId, id))
+    await this.db
+      .update(matches)
+      .set({ loserNextMatchId: null, loserNextSlot: null })
+      .where(eq(matches.loserNextMatchId, id))
+
+    await this.db.delete(matches).where(eq(matches.id, id))
+
+    // Если турнир уже в архиве — пересчитываем чемпиона (финал мог исчезнуть).
+    const [t] = await this.db.select().from(tournaments).where(eq(tournaments.id, m.tournamentId))
+    if (t?.status === 'finished') {
+      const all = await this.db.select().from(matches).where(eq(matches.tournamentId, m.tournamentId))
+      await this.db
+        .update(tournaments)
+        .set({ championTeamId: championOf(all) })
+        .where(eq(tournaments.id, m.tournamentId))
+    }
   }
 
   async seedPlayoff(id: number, qualifiers: number) {
@@ -763,6 +857,67 @@ class MemoryRepo implements Repo {
       )
     }
     return { winnerTeamId: m.winnerTeamId }
+  }
+
+  async addMatch(tournamentId: number, input: AddMatchInput) {
+    const t = this.tournaments.find((x) => x.id === tournamentId)
+    if (!t) throw createError({ statusCode: 404, statusMessage: 'Турнир не найден' })
+    const existing = this.matches.filter((m) => m.tournamentId === tournamentId)
+    const { bracket, round, position, bestOf } = resolveNewMatchPlacement(existing, input, t.boFinal)
+
+    const teamIds = new Set(this.teams.filter((x) => x.tournamentId === tournamentId).map((x) => x.id))
+    const teamAId = input.teamAId && teamIds.has(input.teamAId) ? input.teamAId : null
+    const teamBId = input.teamBId && teamIds.has(input.teamBId) ? input.teamBId : null
+
+    const id = this.id()
+    this.matches.push({
+      id,
+      tournamentId,
+      bracket,
+      round,
+      position,
+      teamAId,
+      teamBId,
+      scoreA: 0,
+      scoreB: 0,
+      bestOf,
+      status: 'pending',
+      winnerTeamId: null,
+      nextMatchId: null,
+      nextSlot: null,
+      loserNextMatchId: null,
+      loserNextSlot: null,
+      groupLabel: null,
+      label: input.label?.trim() || null,
+      maps: null,
+    } as MemMatch)
+    return { id }
+  }
+
+  async deleteMatch(id: number) {
+    const m = this.matches.find((x) => x.id === id)
+    if (!m) throw createError({ statusCode: 404, statusMessage: 'Матч не найден' })
+
+    for (const p of progression(m, false)) {
+      const t = this.matches.find((x) => x.id === p.matchId)
+      if (t) (p.slot === 'a' ? (t.teamAId = p.teamId) : (t.teamBId = p.teamId))
+    }
+    for (const other of this.matches) {
+      if (other.nextMatchId === id) {
+        other.nextMatchId = null
+        other.nextSlot = null
+      }
+      if (other.loserNextMatchId === id) {
+        other.loserNextMatchId = null
+        other.loserNextSlot = null
+      }
+    }
+    this.matches = this.matches.filter((x) => x.id !== id)
+
+    const tourney = this.tournaments.find((x) => x.id === m.tournamentId)
+    if (tourney?.status === 'finished') {
+      tourney.championTeamId = championOf(this.matches.filter((x) => x.tournamentId === m.tournamentId))
+    }
   }
 
   async seedPlayoff(id: number, qualifiers: number) {

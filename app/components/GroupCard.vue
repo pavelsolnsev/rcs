@@ -36,6 +36,7 @@ const emit = defineEmits<{
     p: { id: number; scoreA: number; scoreB: number; status: string; bestOf?: number; maps?: unknown },
   ]
   pick: [teamId: number]
+  delete: [id: number]
 }>()
 
 // Пока в этой группе редактируется матч — показываем только его, остальные прячем,
@@ -121,6 +122,7 @@ const visibleMatches = computed(() => {
         :team-map="teamMap"
         :editable="editable"
         @save="emit('save', $event)"
+        @delete="emit('delete', $event)"
       />
     </div>
   </div>
