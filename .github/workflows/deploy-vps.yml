@@ -1,0 +1,74 @@
+name: Deploy Nuxt to VPS
+
+on:
+  # Запускаем деплой на каждый push в master.
+  push:
+    branches:
+      - master
+
+# Включаем рантайм Node 24 для JavaScript actions (checkout/setup-node),
+# чтобы убрать предупреждение про deprecated Node 20 на GitHub Actions.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Забираем код репозитория, чтобы собрать проект.
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # Ставим Node.js нужной версии для сборки Nuxt.
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      # Проект на npm (package-lock.json).
+      - name: Install dependencies
+        run: npm ci
+
+      # Собираем production-артефакты в .output.
+      - name: Build project
+        run: npm run build
+
+      # Копируем .output на VPS по SSH.
+      # Перед загрузкой удаляем только старую .output, чтобы не стереть .env и другие файлы проекта.
+      - name: Prepare VPS target directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            mkdir -p "${{ secrets.VPS_APP_PATH }}"
+            rm -rf "${{ secrets.VPS_APP_PATH }}/.output"
+
+      # Копируем только папку .output в проект на VPS.
+      - name: Upload .output to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: ".output"
+          target: "${{ secrets.VPS_APP_PATH }}"
+          overwrite: true
+          rm: false
+
+      # После загрузки выполняем команду перезапуска на сервере.
+      - name: Restart app on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            cd "${{ secrets.VPS_APP_PATH }}"
+            ${{ secrets.VPS_RESTART_COMMAND }}
