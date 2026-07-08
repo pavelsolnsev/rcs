@@ -1,0 +1,10 @@
+/**
+ * Защита админ-раздела: пускает только авторизованных.
+ * Применяется на страницах через definePageMeta({ middleware: 'admin' }).
+ */
+export default defineNuxtRouteMiddleware(() => {
+  const { loggedIn } = useUserSession()
+  if (!loggedIn.value) {
+    return navigateTo('/admin/login')
+  }
+})

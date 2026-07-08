@@ -1,0 +1,33 @@
+{
+  "name": "cs2-tournament",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:seed": "node --env-file=.env --import tsx server/db/seed.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "drizzle-orm": "^0.36.4",
+    "mysql2": "^3.11.5",
+    "nuxt": "^4.0.0",
+    "nuxt-auth-utils": "^0.5.16",
+    "sharp": "^0.35.3",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@cspell/dict-ru_ru": "^2.3.2",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "drizzle-kit": "^0.28.1",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.19.2"
+  }
+}

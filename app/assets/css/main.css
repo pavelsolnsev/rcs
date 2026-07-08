@@ -1,0 +1,61 @@
+@import 'tailwindcss';
+
+/* ===== Тёмная киберспортивная тема ===== */
+@theme {
+  --color-bg: #0a0b0f;
+  --color-surface: #12141c;
+  --color-surface-2: #191c27;
+  --color-border: #262a38;
+  --color-brand: #23a83e; /* акцент — зелёный из лого РКС */
+  --color-brand-2: #16833a; /* глубже — для градиентов/hover */
+  --color-win: #2dd4bf; /* бирюзовый — победа/завершение (контраст к бренду) */
+  --color-lose: #64748b;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, Arial, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  background-color: var(--color-bg);
+  color: #e6e8ee;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Убираем «резиновый» отскок и подсветку тапов — ощущение нативного приложения */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Основная область прокрутки приложения — инерция как в нативном приложении */
+.app-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Кастомный скроллбар для области сетки */
+.bracket-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+  -webkit-overflow-scrolling: touch;
+  /* Горизонтальный свайп по сетке не «перетекает» на страницу */
+  overscroll-behavior: contain;
+}
+.bracket-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.bracket-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 999px;
+}
+
+@utility card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+}
