@@ -248,14 +248,14 @@ function onEditorDelete() {
       <span
         v-for="(m, i) in playedMaps"
         :key="i"
-        class="inline-flex items-stretch overflow-hidden rounded-md border border-border font-semibold leading-none"
+        class="inline-flex h-8 items-stretch overflow-hidden rounded-md border border-border font-semibold leading-none"
       >
-        <span class="flex items-center bg-surface-2 px-2 py-1.5 text-xs text-slate-100">
+        <span class="flex h-full items-center whitespace-nowrap bg-surface-2 px-2 text-xs text-slate-100">
           {{ mapLabel(m.map) }}
         </span>
         <span
           v-if="(match.bestOf ?? 1) > 1"
-          class="inline-flex items-center bg-bg px-2 py-1.5 tabular-nums"
+          class="inline-flex h-full items-center whitespace-nowrap bg-bg px-2 tabular-nums"
           :class="mapWinner(m) ? 'font-bold text-win' : 'text-slate-400'"
         >
           <span class="text-sm leading-none">{{ m.scoreA }}</span>

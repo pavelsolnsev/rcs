@@ -50,7 +50,7 @@ function absoluteUrl(v?: string | null) {
 
 const shareTitle = computed(() => (data.value ? `${data.value.tournament.name} · RCS` : 'RCS'))
 const shareDescription = computed(() => {
-  if (!data.value) return 'Турниры по CS2: сетка, результаты и live-матчи.'
+  if (!data.value) return 'Активные и завершённые турниры по CS2: сетка, результаты и live-матчи.'
   return `${formatLabel(data.value.tournament.format)} · ${data.value.tournament.teamSize} · Команд: ${data.value.teams.length}`
 })
 const shareImage = computed(() => {

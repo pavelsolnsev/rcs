@@ -105,16 +105,21 @@ const active = computed(() =>
             ВКонтакте
           </a>
         </div>
+        <div class="mt-3 sm:max-w-md">
+          <NuxtLink
+            to="/archive"
+            class="inline-flex w-full items-center justify-center rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:border-brand hover:text-white"
+          >
+            Смотреть завершённые турниры
+          </NuxtLink>
+        </div>
       </div>
     </section>
 
     <!-- Активные турниры -->
     <section>
-      <div class="mb-4 flex items-center justify-between">
+      <div class="mb-3">
         <h2 class="text-xl font-bold">Активные турниры</h2>
-        <NuxtLink to="/archive" class="text-sm text-slate-400 hover:text-white">
-          Архив →
-        </NuxtLink>
       </div>
 
       <div v-if="pending" class="text-slate-500">Загрузка…</div>

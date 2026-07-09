@@ -8,15 +8,15 @@ const ogImage = computed(() => `${siteUrl.value}/logo.webp`)
 
 useSeoMeta({
   title: 'RCS — LAN-турниры CS2',
-  description: 'Архив завершённых турниров RCS по CS2: результаты, чемпионы, сетка и медиа.',
+  description: 'Завершённые турниры RCS по CS2: результаты, чемпионы, сетка и медиа.',
   ogType: 'website',
   ogSiteName: String(config.public.siteName || 'RCS'),
-  ogTitle: 'Архив турниров RCS',
+  ogTitle: 'Завершённые турниры RCS',
   ogDescription: 'Смотри завершённые турниры, результаты и чемпионов.',
   ogUrl: canonicalUrl,
   ogImage,
   twitterCard: 'summary_large_image',
-  twitterTitle: 'Архив турниров RCS',
+  twitterTitle: 'Завершённые турниры RCS',
   twitterDescription: 'Завершённые LAN-турниры по CS2.',
   twitterImage: ogImage,
 })
@@ -30,7 +30,7 @@ useHead(() => ({
       children: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
-        name: 'Архив турниров',
+        name: 'Завершённые турниры',
         url: canonicalUrl.value,
         inLanguage: 'ru-RU',
       }),
@@ -66,8 +66,10 @@ const filters = ref({
 const list = computed(() =>
   ((tournaments.value ?? []) as TournamentListItem[]).filter((t) => t.status === 'finished'),
 )
+const showFilters = computed(() => list.value.length > 10)
 
 const filtered = computed(() => {
+  if (!showFilters.value) return list.value
   const q = filters.value.search.trim().toLowerCase()
   return list.value.filter((t) => !q || t.name.toLowerCase().includes(q))
 })
@@ -76,11 +78,12 @@ const filtered = computed(() => {
 <template>
   <div class="space-y-6">
     <div>
-      <h1 class="text-2xl font-extrabold">Архив турниров</h1>
+      <h1 class="text-2xl font-extrabold">Завершённые турниры</h1>
       <p class="mt-1 text-slate-400">Завершённые соревнования и их результаты.</p>
     </div>
 
     <TournamentFilters
+      v-if="showFilters"
       v-model="filters"
     />
 

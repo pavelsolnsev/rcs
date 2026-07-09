@@ -154,13 +154,15 @@ const nav = [
       <footer
         class="border-t border-border py-8 text-center [padding-bottom:calc(2rem+env(safe-area-inset-bottom))]"
       >
-        <div class="mx-auto flex max-w-6xl flex-col items-center gap-2 px-4">
-          <AppLogo :size="28" />
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">
-            Играем вживую · настоящая атмосфера
+        <div class="mx-auto flex w-full max-w-md flex-col items-center justify-center gap-3 px-4">
+          <div class="flex w-full justify-center">
+            <AppLogo :size="28" />
+          </div>
+          <p class="w-full text-center text-sm leading-relaxed text-slate-400">
+            Живые LAN-турниры <span class="font-semibold text-slate-200">RCS</span> по CS2 в Раменском
           </p>
 
-          <div class="mt-2 flex items-center gap-3">
+          <div class="mt-1 flex w-full items-center justify-center gap-3">
             <a
               href="https://t.me/rcs2ram"
               target="_blank"
