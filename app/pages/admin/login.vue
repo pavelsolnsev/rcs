@@ -29,11 +29,18 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
+    const normalizedUsername = username.value.trim()
     await $fetch('/api/auth/login', {
       method: 'POST',
-      body: { username: username.value, password: password.value },
+      body: { username: normalizedUsername, password: password.value },
     })
     await refreshSession()
+    if (!loggedIn.value) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Сессия не сохранилась. Проверьте вход по HTTPS или настройки cookie.',
+      })
+    }
     await navigateTo('/admin')
   } catch (e: any) {
     error.value = e?.data?.statusMessage || e?.statusMessage || 'Ошибка входа'
@@ -46,6 +53,17 @@ async function submit() {
 <template>
   <div class="mx-auto max-w-sm">
     <div class="card p-6">
+      <div class="mb-3 flex justify-end">
+        <NuxtLink
+          to="/"
+          aria-label="Закрыть вход"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-slate-400 transition-colors hover:border-brand hover:text-white"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </NuxtLink>
+      </div>
       <div class="mb-6 flex flex-col items-center gap-2 text-center">
         <AppLogo :size="48" />
         <h1 class="text-xl font-bold">Вход для администратора</h1>
@@ -59,6 +77,10 @@ async function submit() {
             v-model="username"
             type="text"
             autocomplete="username"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            inputmode="text"
             class="w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-brand"
           />
         </div>
@@ -68,6 +90,10 @@ async function submit() {
             v-model="password"
             type="password"
             autocomplete="current-password"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            inputmode="text"
             class="w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-brand"
           />
         </div>

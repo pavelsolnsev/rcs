@@ -31,6 +31,7 @@ const props = defineProps<{
   match: Match
   teamMap: Record<number, Team>
   editable?: boolean
+  highlighted?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -55,7 +56,7 @@ const teamA = computed(() => (props.match.teamAId ? props.teamMap[props.match.te
 const teamB = computed(() => (props.match.teamBId ? props.teamMap[props.match.teamBId] : null))
 
 // Общий на всю сетку id матча в правке (через provide в BracketView).
-// Одновременно открыт только один редактор; остальные карточки группы скрываются.
+// Одновременно открыт только один редактор; остальные карточки остаются видимыми.
 const openMatchId = inject<Ref<number | null>>('openMatchId', ref(null))
 const editing = computed(() => openMatchId.value === props.match.id)
 const canEdit = computed(() => props.editable && teamA.value && teamB.value)
@@ -85,6 +86,13 @@ const mapWinner = (m: MapRow) => (m.scoreA > m.scoreB ? 'a' : m.scoreB > m.score
 const isWinner = (teamId: number | null) =>
   props.match.winnerTeamId != null && props.match.winnerTeamId === teamId
 const hasWinner = computed(() => props.match.winnerTeamId != null)
+const isAutoBye = computed(() => {
+  const hasOnlyOneTeam =
+    (props.match.teamAId != null && props.match.teamBId == null) ||
+    (props.match.teamAId == null && props.match.teamBId != null)
+  const loneTeamId = props.match.teamAId ?? props.match.teamBId
+  return props.match.status === 'finished' && hasOnlyOneTeam && loneTeamId === props.match.winnerTeamId
+})
 
 function openEdit() {
   if (!canEdit.value || editing.value) return
@@ -136,9 +144,12 @@ function onEditorDelete() {
   <div
     class="card relative w-full overflow-hidden transition-colors focus:outline-none"
     :class="
-      canEdit && !editing
-        ? 'cursor-pointer touch-manipulation hover:border-brand/60 focus-visible:border-brand'
-        : ''
+      [
+        canEdit && !editing
+          ? 'cursor-pointer touch-manipulation hover:border-brand/60 focus-visible:border-brand'
+          : '',
+        highlighted ? 'ring-2 ring-brand/55 shadow-[0_0_0_1px_rgba(34,211,238,0.25)]' : '',
+      ]
     "
     :role="canEdit && !editing ? 'button' : undefined"
     :tabindex="canEdit && !editing ? 0 : undefined"
@@ -175,7 +186,15 @@ function onEditorDelete() {
           BO{{ match.bestOf ?? 1 }}
         </span>
       </span>
-      <StatusBadge :status="match.status" size="sm" class="shrink-0" />
+      <span class="flex shrink-0 items-center gap-1.5">
+        <span
+          v-if="isAutoBye"
+          class="inline-flex items-center rounded-full border border-violet-400/40 bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold tracking-wide text-violet-300"
+        >
+          BYE
+        </span>
+        <StatusBadge :status="match.status" size="sm" />
+      </span>
     </div>
 
     <!-- Команды -->

@@ -15,6 +15,7 @@ interface TournamentData {
     format: string
     teamSize: string
     championTeamId: number | null
+    groupQualifiers?: number | null
   }
   teams: {
     id: number
@@ -105,6 +106,24 @@ const champion = computed(() => {
   const cid = data.value?.tournament?.championTeamId
   return cid ? teamMap.value[cid] : null
 })
+const effectiveGroupQualifiers = computed(() => {
+  const raw = Number(data.value?.tournament?.groupQualifiers)
+  const groupLabels = new Set(
+    (data.value?.matches ?? [])
+      .filter((m: any) => m?.bracket === 'group' && typeof m?.groupLabel === 'string' && m.groupLabel)
+      .map((m: any) => m.groupLabel),
+  )
+  const teamsCount = data.value?.teams?.length ?? 0
+  // Для турнира 1x6, где в форме выбрали 4, но в БД из-за старого бага осталось 2.
+  if (
+    data.value?.tournament?.format === 'groups_playoff' &&
+    groupLabels.size === 1 &&
+    teamsCount === 6 &&
+    raw === 2
+  ) return 4
+  if (Number.isInteger(raw) && raw >= 1) return raw
+  return 2
+})
 
 // Формат команд турнира — для пула карт в редакторе матча
 provide(
@@ -183,7 +202,10 @@ async function saveEdits() {
 
 async function seedPlayoff() {
   try {
-    await $fetch(`/api/tournaments/${id}/seed-playoff`, { method: 'POST', body: { qualifiers: 2 } })
+    await $fetch(`/api/tournaments/${id}/seed-playoff`, {
+      method: 'POST',
+      body: { qualifiers: effectiveGroupQualifiers.value },
+    })
     await refresh()
   } catch (e: any) {
     error(e?.data?.statusMessage || 'Не удалось сформировать плей-офф')
@@ -223,6 +245,16 @@ async function addMatch(payload: {
     await refresh()
   } catch (e: any) {
     error(e?.data?.statusMessage || 'Не удалось добавить матч')
+  }
+}
+
+async function reorderMatches(payload: { matchId: number; order: number }) {
+  try {
+    await $fetch('/api/matches/reorder', { method: 'POST', body: payload })
+    if (editMode.value) dirty.value = true
+    await refresh()
+  } catch (e: any) {
+    error(e?.data?.statusMessage || 'Не удалось изменить порядок матчей')
   }
 }
 
@@ -375,12 +407,14 @@ async function deleteMatch(matchId: number) {
         :format="data.tournament.format"
         :matches="data.matches"
         :teams="data.teams"
+        :group-qualifiers="effectiveGroupQualifiers"
         :editable="editable"
         @save="saveMatch"
         @seed-playoff="seedPlayoff"
         @swap-teams="swapGroupTeams"
         @add-match="addMatch"
         @delete-match="deleteMatch"
+        @reorder-matches="reorderMatches"
       />
     </section>
 

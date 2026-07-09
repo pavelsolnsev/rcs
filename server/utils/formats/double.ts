@@ -84,18 +84,24 @@ export function buildDoubleElimination(
   }
 
   // --- Маршрутизация проигравших WB → LB ---
-  // WB R1: проигравшие game i → LB R1 game floor(i/2), слот по чётности
-  wb[0]!.forEach((m, i) => {
-    m.loserNextMatchId = lb[0]![Math.floor(i / 2)]!.id
-    m.loserNextSlot = (i % 2 === 0 ? 'a' : 'b') as Slot
-  })
-  // WB раунд m (m>=2): проигравший game i → LB раунд 2(m-1), слот 'b'
-  for (let m = 2; m <= W; m++) {
-    const lbRound = lb[2 * (m - 1) - 1]! // индекс = 2(m-1)-1
-    wb[m - 1]!.forEach((match, i) => {
-      match.loserNextMatchId = lbRound[i]!.id
-      match.loserNextSlot = 'b'
+  // Если LB отсутствует (например, 2 команды), дропать проигравших некуда.
+  if (lbRounds > 0) {
+    // WB R1: проигравшие game i → LB R1 game floor(i/2), слот по чётности
+    wb[0]!.forEach((m, i) => {
+      m.loserNextMatchId = lb[0]![Math.floor(i / 2)]!.id
+      m.loserNextSlot = (i % 2 === 0 ? 'a' : 'b') as Slot
     })
+    // WB раунд m (m>=2): проигравший game i → LB раунд 2(m-1), слот 'b'
+    for (let m = 2; m <= W; m++) {
+      const lbRound = lb[2 * (m - 1) - 1]
+      if (!lbRound?.length) continue
+      wb[m - 1]!.forEach((match, i) => {
+        const target = lbRound[i]
+        if (!target) return
+        match.loserNextMatchId = target.id
+        match.loserNextSlot = 'b'
+      })
+    }
   }
 
   const rows = [...wb.flat(), ...lb.flat(), grandFinal, grandFinalReset]

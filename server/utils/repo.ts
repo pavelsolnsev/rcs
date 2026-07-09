@@ -30,6 +30,7 @@ export interface CreateTournamentInput {
   teamNames: string[]
   teamRosters?: { nickname: string; role?: 'captain' | 'player'; steamId?: string | null }[][]
   groupSize?: number
+  groupCount?: number
   qualifiers?: number
   boGroups?: number
   boMain?: number
@@ -83,7 +84,8 @@ export interface Repo {
   updateMatch(id: number, patch: MatchPatch): Promise<{ winnerTeamId: number | null }>
   addMatch(tournamentId: number, input: AddMatchInput): Promise<{ id: number }>
   deleteMatch(id: number): Promise<void>
-  seedPlayoff(id: number, qualifiers: number): Promise<{ seeded: number }>
+  moveMatchOrder(matchId: number, order: number): Promise<void>
+  seedPlayoff(id: number, qualifiers?: number): Promise<{ seeded: number }>
   swapGroupTeams(id: number, teamAId: number, teamBId: number): Promise<void>
   addTeam(tournamentId: number, input: AddTeamInput): Promise<{ id: number }>
   removeTeam(teamId: number): Promise<void>
@@ -113,7 +115,7 @@ function rebuildOpts(
     perGroup.set(m.groupLabel, set)
   }
   const groupSize = perGroup.size ? Math.max(...[...perGroup.values()].map((s) => s.size)) : 4
-  return { groupSize, bestOf }
+  return { groupSize, groupCount: perGroup.size || undefined, bestOf }
 }
 
 /**
@@ -205,6 +207,43 @@ function applyGroupSwap<T extends {
 class MysqlRepo implements Repo {
   readonly kind = 'mysql' as const
   constructor(private db: MySql2Database<typeof schema>) {}
+
+  /** Допрогоняет авто-проходы (bye), чтобы в LB не оставались "висячие" матчи. */
+  private async resolveByesAfterProgress(tournamentId: number) {
+    const rows = await this.db.select().from(matches).where(eq(matches.tournamentId, tournamentId))
+    if (!rows.length) return
+    const before = new Map(
+      rows.map((r) => [
+        r.id,
+        {
+          teamAId: r.teamAId,
+          teamBId: r.teamBId,
+          status: r.status,
+          winnerTeamId: r.winnerTeamId,
+        },
+      ]),
+    )
+    autoAdvanceByes(rows as unknown as BracketRow[])
+    for (const r of rows) {
+      const prev = before.get(r.id)
+      if (!prev) continue
+      if (
+        prev.teamAId === r.teamAId &&
+        prev.teamBId === r.teamBId &&
+        prev.status === r.status &&
+        prev.winnerTeamId === r.winnerTeamId
+      ) continue
+      await this.db
+        .update(matches)
+        .set({
+          teamAId: r.teamAId,
+          teamBId: r.teamBId,
+          status: r.status as any,
+          winnerTeamId: r.winnerTeamId,
+        })
+        .where(eq(matches.id, r.id))
+    }
+  }
 
   async listTournaments() {
     const list = await this.db.select().from(tournaments).orderBy(desc(tournaments.createdAt))
@@ -306,6 +345,9 @@ class MysqlRepo implements Repo {
         boGroups: bo.groups,
         boMain: bo.main,
         boFinal: bo.final,
+        groupSize: input.format === 'groups_playoff' ? Number(input.groupSize) || null : null,
+        groupCount: input.format === 'groups_playoff' ? Number(input.groupCount) || null : null,
+        groupQualifiers: input.format === 'groups_playoff' ? Number(input.qualifiers) || null : null,
       })
       .$returningId()
     if (!created) throw createError({ statusCode: 500, statusMessage: 'Не удалось создать турнир' })
@@ -326,6 +368,7 @@ class MysqlRepo implements Repo {
     let local = 0
     const rows = buildBracket(input.format, inserted.map((t) => t.id), () => ++local, {
       groupSize: input.groupSize,
+      groupCount: input.groupCount,
       qualifiers: input.qualifiers,
       bestOf: bo,
     })
@@ -407,6 +450,9 @@ class MysqlRepo implements Repo {
       }
     }
 
+    // После продвижения победителя/проигравшего закрываем каскадные bye-ветки.
+    await this.resolveByesAfterProgress(m.tournamentId)
+
     // Если правим уже завершённый турнир — пересчитываем чемпиона в архиве.
     const [t] = await this.db.select().from(tournaments).where(eq(tournaments.id, m.tournamentId))
     if (t?.status === 'finished') {
@@ -479,11 +525,45 @@ class MysqlRepo implements Repo {
     }
   }
 
-  async seedPlayoff(id: number, qualifiers: number) {
+  async moveMatchOrder(matchId: number, order: number) {
+    const [target] = await this.db.select().from(matches).where(eq(matches.id, matchId))
+    if (!target) throw createError({ statusCode: 404, statusMessage: 'Матч не найден' })
+    if (target.bracket !== 'group' || !target.groupLabel) {
+      throw createError({ statusCode: 400, statusMessage: 'Перестановка доступна только для групповых матчей' })
+    }
+    const groupRows = await this.db
+      .select()
+      .from(matches)
+      .where(
+        and(
+          eq(matches.tournamentId, target.tournamentId),
+          eq(matches.bracket, 'group'),
+          eq(matches.groupLabel, target.groupLabel),
+        ),
+      )
+      .orderBy(asc(matches.position))
+    if (!groupRows.length) return
+
+    const from = groupRows.findIndex((m) => m.id === matchId)
+    if (from === -1) return
+    const to = Math.min(groupRows.length - 1, Math.max(0, Math.floor(order) - 1))
+    if (from === to) return
+
+    const ordered = [...groupRows]
+    const [row] = ordered.splice(from, 1)
+    ordered.splice(to, 0, row!)
+    for (const [idx, m] of ordered.entries()) {
+      if (m.position === idx) continue
+      await this.db.update(matches).set({ position: idx }).where(eq(matches.id, m.id))
+    }
+  }
+
+  async seedPlayoff(id: number, qualifiers?: number) {
     const teamRows = await this.db.select().from(teams).where(eq(teams.tournamentId, id))
     const all = await this.db.select().from(matches).where(eq(matches.tournamentId, id))
     const [t] = await this.db.select().from(tournaments).where(eq(tournaments.id, id))
-    const order = computeSeedOrder(teamRows, all, qualifiers)
+    const effectiveQualifiers = Number(qualifiers) || Number(t?.groupQualifiers) || 2
+    const order = computeSeedOrder(teamRows, all, effectiveQualifiers)
 
     // Пересоздаём сетку плей-офф под число проходящих команд
     await this.db
@@ -647,6 +727,13 @@ class MemoryRepo implements Repo {
   private seq = 1
   private id = () => this.seq++
 
+  /** Допрогоняет авто-проходы (bye) в памяти после обновления матча. */
+  private resolveByesAfterProgress(tournamentId: number) {
+    const rows = this.matches.filter((m) => m.tournamentId === tournamentId)
+    if (!rows.length) return
+    autoAdvanceByes(rows as unknown as BracketRow[])
+  }
+
   constructor() {
     this.seedDemo('CS2 Weekly Cup #14', 'ongoing', 'single_elimination', [
       'Navi', 'Vitality', 'FaZe', 'G2', 'Spirit', 'MOUZ', 'Astralis', 'Heroic',
@@ -688,6 +775,7 @@ class MemoryRepo implements Repo {
     this.tournaments.push({
       id, name, description: null, format, teamSize: '5x5', status,
       championTeamId: null, boGroups: 1, boMain: 1, boFinal: 1,
+      groupSize: null, groupCount: null, groupQualifiers: null,
       createdAt: new Date().toISOString(), finishedAt: null,
     })
     this.addRows(id, format, teamNames, buildNormalizedRosters(teamNames, undefined, 5))
@@ -774,10 +862,14 @@ class MemoryRepo implements Repo {
       id, name: input.name, description: input.description ?? null,
       format: input.format, teamSize: input.teamSize, status: 'ongoing',
       championTeamId: null, boGroups: bo.groups, boMain: bo.main, boFinal: bo.final,
+      groupSize: input.format === 'groups_playoff' ? Number(input.groupSize) || null : null,
+      groupCount: input.format === 'groups_playoff' ? Number(input.groupCount) || null : null,
+      groupQualifiers: input.format === 'groups_playoff' ? Number(input.qualifiers) || null : null,
       createdAt: new Date().toISOString(), finishedAt: null,
     })
     this.addRows(id, input.format, input.teamNames, normalizedRosters, {
       groupSize: input.groupSize,
+      groupCount: input.groupCount,
       qualifiers: input.qualifiers,
       bestOf: bo,
     })
@@ -848,6 +940,9 @@ class MemoryRepo implements Repo {
         }
       }
     }
+
+    // После продвижения закрываем возможные "висячие" bye-ветки.
+    this.resolveByesAfterProgress(m.tournamentId)
 
     // Пересчёт чемпиона при правке архивного турнира.
     const tourney = this.tournaments.find((x) => x.id === m.tournamentId)
@@ -920,14 +1015,41 @@ class MemoryRepo implements Repo {
     }
   }
 
-  async seedPlayoff(id: number, qualifiers: number) {
+  async moveMatchOrder(matchId: number, order: number) {
+    const target = this.matches.find((x) => x.id === matchId)
+    if (!target) throw createError({ statusCode: 404, statusMessage: 'Матч не найден' })
+    if (target.bracket !== 'group' || !target.groupLabel) {
+      throw createError({ statusCode: 400, statusMessage: 'Перестановка доступна только для групповых матчей' })
+    }
+    const groupRows = this.matches
+      .filter(
+        (m) =>
+          m.tournamentId === target.tournamentId &&
+          m.bracket === 'group' &&
+          m.groupLabel === target.groupLabel,
+      )
+      .sort((a, b) => a.position - b.position)
+    const from = groupRows.findIndex((m) => m.id === matchId)
+    if (from === -1) return
+    const to = Math.min(groupRows.length - 1, Math.max(0, Math.floor(order) - 1))
+    if (from === to) return
+    const ordered = [...groupRows]
+    const [row] = ordered.splice(from, 1)
+    ordered.splice(to, 0, row!)
+    ordered.forEach((m, idx) => {
+      m.position = idx
+    })
+  }
+
+  async seedPlayoff(id: number, qualifiers?: number) {
     const teamRows = this.teams.filter((t) => t.tournamentId === id)
     const all = this.matches.filter((m) => m.tournamentId === id)
-    const order = computeSeedOrder(teamRows, all, qualifiers)
+    const t = this.tournaments.find((x) => x.id === id)
+    const effectiveQualifiers = Number(qualifiers) || Number(t?.groupQualifiers) || 2
+    const order = computeSeedOrder(teamRows, all, effectiveQualifiers)
 
     this.matches = this.matches.filter((m) => !(m.tournamentId === id && m.bracket === 'playoff'))
     const rows = buildSeededPlayoff(order, this.id)
-    const t = this.tournaments.find((x) => x.id === id)
     applyBestOf(rows, { main: t?.boMain ?? 1, final: t?.boFinal ?? 1 })
     for (const r of rows) this.matches.push({ ...r, tournamentId: id })
     return { seeded: order.filter(Boolean).length }
@@ -1095,9 +1217,20 @@ function computeSeedOrder(teamRows: any[], all: any[], qualifiers: number): (num
   }
   const standings = computeStandings(teamRows, all)
   const labels = Object.keys(standings)
-  // Если группа одна — в плей-офф выходят все её команды (посев 1-4, 2-3 и т.д.).
-  const eff = labels.length === 1 ? standings[labels[0]!]?.length ?? qualifiers : qualifiers
-  return seedPlayoffOrder(standings, eff)
+  if (!labels.length) {
+    throw createError({ statusCode: 400, statusMessage: 'Группы не найдены' })
+  }
+  if (!Number.isInteger(qualifiers) || qualifiers < 1) {
+    throw createError({ statusCode: 400, statusMessage: 'Некорректное количество выходящих из группы' })
+  }
+  const minGroupSize = Math.min(...labels.map((l) => standings[l]?.length ?? 0))
+  if (qualifiers > minGroupSize) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `Из группы может выйти максимум ${minGroupSize} команд`,
+    })
+  }
+  return seedPlayoffOrder(standings, qualifiers)
 }
 
 /** Строит засеянную сетку плей-офф под уже определённый порядок слотов. */

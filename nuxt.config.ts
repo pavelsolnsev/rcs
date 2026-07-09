@@ -52,6 +52,14 @@ export default defineNuxtConfig({
     dbUser: process.env.DB_USER,
     dbPassword: process.env.DB_PASSWORD,
     dbName: process.env.DB_NAME,
+    session: {
+      password: process.env.NUXT_SESSION_PASSWORD || '',
+      cookie: {
+        sameSite: 'lax',
+        // Для LAN/HTTP в dev cookie должна быть без Secure, иначе мобильный браузер её не отправит.
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
     public: {
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
       siteName: 'RCS',

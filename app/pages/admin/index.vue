@@ -26,6 +26,7 @@ const form = reactive({
   teamSize: '5x5',
   teamsText: '',
   groupSize: 4,
+  groupCount: 1,
   qualifiers: 2,
   boGroups: 1,
   boMain: 1,
@@ -53,8 +54,87 @@ const parsedTeams = computed(() =>
     .map((s) => s.trim())
     .filter(Boolean),
 )
+const effectiveGroupSize = computed(() => {
+  return form.groupSize
+})
+const showGroupCountSection = computed(
+  () => form.format === 'groups_playoff' && Number(form.groupSize) >= 6,
+)
+const teamsForGrouping = computed(() =>
+  Math.max(parsedTeams.value.length, Math.max(0, Number(form.groupSize) || 0)),
+)
+const maxAllowedGroupCount = computed(() => {
+  if (!showGroupCountSection.value) return 1
+  const total = teamsForGrouping.value
+  if (total < 6) return 1
+  // Логика: в группе должно быть минимум 3 команды.
+  return Math.max(2, Math.floor(total / 3))
+})
+const effectiveGroupCount = computed(() => {
+  if (form.format !== 'groups_playoff') return undefined
+  if (!showGroupCountSection.value) return 1
+  const raw = Number(form.groupCount)
+  if (!Number.isFinite(raw)) return 1
+  return Math.min(maxAllowedGroupCount.value, Math.max(1, Math.floor(raw)))
+})
+const minTeamsPerGroup = computed(() => {
+  if (form.format !== 'groups_playoff') return 2
+  const total = teamsForGrouping.value
+  if (total < 2) return Math.max(2, Number(effectiveGroupSize.value) || 4)
+  const size = Math.max(2, Number(effectiveGroupSize.value) || 4)
+  const count = Number(effectiveGroupCount.value) || 0
+  if (count > 0) return Math.max(2, Math.floor(total / count))
+  const rem = total % size
+  return Math.max(2, rem === 0 ? size : rem)
+})
+const effectiveGroupCountValue = computed(() => {
+  if (form.format !== 'groups_playoff') return 0
+  const total = parsedTeams.value.length
+  const size = Math.max(2, Number(effectiveGroupSize.value) || 4)
+  const explicit = Number(effectiveGroupCount.value) || 0
+  if (explicit > 0) return explicit
+  return Math.max(1, Math.ceil(total / size))
+})
+const totalPlayoffTeams = computed(() => {
+  if (form.format !== 'groups_playoff') return 0
+  return effectiveGroupCountValue.value * Math.max(0, Number(form.qualifiers) || 0)
+})
 const rosterSize = computed(() => (form.teamSize === '1x1' ? 1 : form.teamSize === '2x2' ? 2 : 5))
 const rosterDraft = ref<string[][]>([])
+const teamRostersPayload = computed(() => {
+  const payload = parsedTeams.value.map((_, teamIdx) =>
+    (rosterDraft.value[teamIdx] ?? []).map((nickname, playerIdx) => ({
+      nickname: nickname.trim(),
+      role: playerIdx === 0 ? 'captain' : 'player',
+    })),
+  )
+  const hasAnyNickname = payload.some((team) => team.some((player) => player.nickname))
+  return hasAnyNickname ? payload : undefined
+})
+
+function clampQualifiersInput() {
+  if (form.format !== 'groups_playoff') return
+  const maxAllowed = Math.max(1, minTeamsPerGroup.value)
+  const raw = Number(form.qualifiers)
+  if (!Number.isFinite(raw)) {
+    form.qualifiers = 1
+    return
+  }
+  form.qualifiers = Math.min(maxAllowed, Math.max(1, Math.floor(raw)))
+}
+
+function clampGroupCountInput() {
+  if (form.format !== 'groups_playoff' || !showGroupCountSection.value) {
+    form.groupCount = 1
+    return
+  }
+  const raw = Number(form.groupCount)
+  if (!Number.isFinite(raw)) {
+    form.groupCount = 1
+    return
+  }
+  form.groupCount = Math.min(maxAllowedGroupCount.value, Math.max(1, Math.floor(raw)))
+}
 
 watch([parsedTeams, rosterSize], ([names, size]) => {
   const prev = rosterDraft.value
@@ -67,6 +147,13 @@ watch([parsedTeams, rosterSize], ([names, size]) => {
     }),
   )
 }, { immediate: true })
+watch(
+  () => [form.format, form.groupSize, parsedTeams.value.length],
+  () => {
+    clampGroupCountInput()
+  },
+  { immediate: true },
+)
 
 async function createTournament() {
   formError.value = ''
@@ -78,10 +165,20 @@ async function createTournament() {
     formError.value = 'Нужно минимум 2 команды (по одной в строке)'
     return
   }
-  for (const [teamIdx, teamName] of parsedTeams.value.entries()) {
-    const players = rosterDraft.value[teamIdx] ?? []
-    if (players.length !== rosterSize.value || players.some((p) => !p?.trim())) {
-      formError.value = `Заполни состав команды «${teamName}»`
+  if (form.format === 'groups_playoff') {
+    clampGroupCountInput()
+    const minGroup = minTeamsPerGroup.value
+    if (minGroup < 2) {
+      formError.value = 'В каждой группе должно быть минимум 2 команды'
+      return
+    }
+    const qualifiers = Number(form.qualifiers)
+    if (
+      !Number.isInteger(qualifiers) ||
+      qualifiers < 1 ||
+      qualifiers > minGroup
+    ) {
+      formError.value = `Количество выходящих из группы должно быть от 1 до ${minGroup}`
       return
     }
   }
@@ -94,13 +191,9 @@ async function createTournament() {
         format: form.format,
         teamSize: form.teamSize,
         teamNames: parsedTeams.value,
-        teamRosters: parsedTeams.value.map((_, teamIdx) =>
-          (rosterDraft.value[teamIdx] ?? []).map((nickname, playerIdx) => ({
-            nickname: nickname.trim(),
-            role: playerIdx === 0 ? 'captain' : 'player',
-          })),
-        ),
-        groupSize: form.groupSize,
+        teamRosters: teamRostersPayload.value,
+        groupSize: form.format === 'groups_playoff' ? effectiveGroupSize.value : undefined,
+        groupCount: form.format === 'groups_playoff' ? effectiveGroupCount.value : undefined,
         qualifiers: form.qualifiers,
         boGroups: form.boGroups,
         boMain: form.boMain,
@@ -164,7 +257,7 @@ async function removeTournament(id: number, name: string) {
 
           <div v-if="form.format === 'groups_playoff'" class="grid gap-4 sm:grid-cols-2">
             <div>
-              <label class="mb-1 block text-sm text-slate-400">Размер группы</label>
+              <label class="mb-1 block text-sm text-slate-400">Количество команд</label>
               <input
                 v-model.number="form.groupSize"
                 type="number"
@@ -172,15 +265,45 @@ async function removeTournament(id: number, name: string) {
                 class="w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-brand"
               />
             </div>
+            <div v-if="showGroupCountSection">
+              <label class="mb-1 block text-sm text-slate-400">Количество групп</label>
+              <input
+                v-model.number="form.groupCount"
+                type="number"
+                min="1"
+                :max="maxAllowedGroupCount"
+                class="w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-brand"
+                @input="clampGroupCountInput"
+              />
+              <p class="mt-1 text-xs text-slate-500">
+                Допустимо: 1–{{ maxAllowedGroupCount }} (минимум 3 команды в группе)
+              </p>
+            </div>
             <div>
               <label class="mb-1 block text-sm text-slate-400">Выходят из группы</label>
               <input
                 v-model.number="form.qualifiers"
                 type="number"
                 min="1"
+                :max="Math.max(1, minTeamsPerGroup)"
                 class="w-full rounded-lg border border-border bg-bg px-3 py-2 outline-none focus:border-brand"
+                @input="clampQualifiersInput"
               />
+              <p class="mt-1 text-xs text-slate-500">
+                Допустимо: 1–{{ Math.max(1, minTeamsPerGroup) }} на группу
+              </p>
             </div>
+          </div>
+          <div
+            v-if="form.format === 'groups_playoff'"
+            class="rounded-lg border border-border bg-surface-2/50 p-3 text-xs text-slate-300"
+          >
+            <p>
+              Итог: групп — <span class="font-semibold text-white">{{ effectiveGroupCountValue }}</span>,
+              выходит из каждой — <span class="font-semibold text-white">{{ form.qualifiers }}</span>,
+              в плей-офф попадут —
+              <span class="font-semibold text-brand">{{ totalPlayoffTeams }}</span> команд.
+            </p>
           </div>
 
           <!-- Формат матчей (best-of) по стадиям -->
@@ -219,7 +342,9 @@ async function removeTournament(id: number, name: string) {
           <div v-if="parsedTeams.length" class="space-y-2">
             <label class="block text-sm text-slate-400">
               Составы команд
-              <span class="text-slate-600">(по {{ rosterSize }} игрок{{ rosterSize === 1 ? 'у' : 'ов' }})</span>
+              <span class="text-slate-600">
+                (по {{ rosterSize }} игрок{{ rosterSize === 1 ? 'у' : 'ов' }}, необязательно)
+              </span>
             </label>
             <div class="grid gap-3 sm:grid-cols-2">
               <div

@@ -4,6 +4,7 @@ import { newRow, type BracketRow } from './types'
 
 export interface GroupsOpts {
   groupSize?: number // размер группы (по умолчанию 4)
+  groupCount?: number // количество групп (если нужно принудительно)
   qualifiers?: number // сколько выходит из группы (по умолчанию 2)
 }
 
@@ -11,6 +12,51 @@ function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = []
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
   return out
+}
+
+function splitByGroupCount<T>(arr: T[], groupCount: number): T[][] {
+  const groups = Array.from({ length: groupCount }, () => [] as T[])
+  for (const item of arr) {
+    let minIdx = 0
+    for (let i = 1; i < groups.length; i++) {
+      if (groups[i]!.length < groups[minIdx]!.length) minIdx = i
+    }
+    groups[minIdx]!.push(item)
+  }
+  return groups.filter((g) => g.length > 0)
+}
+
+/**
+ * Round-robin расписание по методу "circle":
+ * в каждом туре команда играет не более одного матча, поэтому не получается
+ * последовательных матчей подряд для одной и той же команды.
+ */
+function roundRobinPairs(teamIds: number[]): Array<[number, number]> {
+  if (teamIds.length < 2) return []
+  const odd = teamIds.length % 2 === 1
+  const list = odd ? [...teamIds, -1] : [...teamIds]
+  const rounds = list.length - 1
+  const half = list.length / 2
+  const pairs: Array<[number, number]> = []
+
+  for (let round = 0; round < rounds; round++) {
+    const used = new Set<number>()
+    for (let i = 0; i < half; i++) {
+      const a = list[i]!
+      const b = list[list.length - 1 - i]!
+      if (a === -1 || b === -1) continue
+      if (used.has(a) || used.has(b)) continue
+      used.add(a)
+      used.add(b)
+      pairs.push(round % 2 === 0 ? [a, b] : [b, a])
+    }
+    // фиксируем первый элемент, остальные ротируем
+    const fixed = list[0]!
+    const rest = list.slice(1)
+    rest.unshift(rest.pop()!)
+    list.splice(0, list.length, fixed, ...rest)
+  }
+  return pairs
 }
 
 /** Пустая single-elim сетка без команд (для плей-офф — заполняется после групп). */
@@ -48,13 +94,11 @@ export function buildGroupMatches(groups: number[][], allocId: () => number): Br
   groups.forEach((gTeams, gi) => {
     const label = String.fromCharCode(65 + gi) // A, B, C, ...
     let pos = 0
-    for (let a = 0; a < gTeams.length; a++) {
-      for (let b = a + 1; b < gTeams.length; b++) {
-        const m = newRow(allocId, 'group', 1, pos++, { groupLabel: label })
-        m.teamAId = gTeams[a]!
-        m.teamBId = gTeams[b]!
-        rows.push(m)
-      }
+    for (const [a, b] of roundRobinPairs(gTeams)) {
+      const m = newRow(allocId, 'group', 1, pos++, { groupLabel: label })
+      m.teamAId = a
+      m.teamBId = b
+      rows.push(m)
     }
   })
   return rows
@@ -65,7 +109,28 @@ export function buildGroups(
   allocId: () => number,
   opts: GroupsOpts = {},
 ): BracketRow[] {
-  return buildGroupMatches(chunk(teamIds, opts.groupSize ?? 4), allocId)
+  const groupSize = Math.max(2, Number(opts.groupSize) || 4)
+  const requestedGroupCount = Math.max(0, Number(opts.groupCount) || 0)
+  const groups =
+    requestedGroupCount > 0
+      ? splitByGroupCount(teamIds, requestedGroupCount)
+      : chunk(teamIds, groupSize)
+
+  if (!groups.length) return []
+  if (groups.some((g) => g.length < 2)) {
+    throw createError({ statusCode: 400, statusMessage: 'В каждой группе должно быть минимум 2 команды' })
+  }
+  if (opts.qualifiers) {
+    const qualifiers = Number(opts.qualifiers)
+    const minGroupSize = Math.min(...groups.map((g) => g.length))
+    if (!Number.isInteger(qualifiers) || qualifiers < 1 || qualifiers > minGroupSize) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: `Количество выходящих из группы должно быть от 1 до ${minGroupSize}`,
+      })
+    }
+  }
+  return buildGroupMatches(groups, allocId)
 }
 
 // ---------- Турнирная таблица ----------

@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Некорректный id' })
   }
   const body = await readBody<{ qualifiers?: number }>(event)
-  const qualifiers = Number(body?.qualifiers) || 2
+  const qualifiers = Number(body?.qualifiers) || undefined
 
   const repo = await useRepo()
   return repo.seedPlayoff(id, qualifiers)

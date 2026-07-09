@@ -42,8 +42,9 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
   -webkit-overflow-scrolling: touch;
-  /* Горизонтальный свайп по сетке не «перетекает» на страницу */
-  overscroll-behavior: contain;
+  /* Блокируем только горизонтальное "перетекание", вертикаль оставляем странице */
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
 }
 .bracket-scroll::-webkit-scrollbar {
   height: 10px;

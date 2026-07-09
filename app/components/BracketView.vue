@@ -12,6 +12,7 @@ const props = defineProps<{
   format: string
   matches: Match[]
   teams: Team[]
+  groupQualifiers?: number
   editable?: boolean
 }>()
 const emit = defineEmits<{
@@ -31,6 +32,7 @@ const emit = defineEmits<{
     },
   ]
   deleteMatch: [id: number]
+  reorderMatches: [p: { matchId: number; order: number }]
 }>()
 
 const addingMatch = ref(false)
@@ -94,11 +96,13 @@ provide('openMatchId', openMatchId)
       v-else-if="format === 'groups_playoff'"
       :matches="matches"
       :teams="teams"
+      :qualifiers="props.groupQualifiers ?? 2"
       :editable="editable"
       @save="emit('save', $event)"
       @seed-playoff="emit('seedPlayoff')"
       @swap-teams="emit('swapTeams', $event)"
       @delete="emit('deleteMatch', $event)"
+      @reorder="emit('reorderMatches', $event)"
     />
 
     <!-- Double Elimination -->

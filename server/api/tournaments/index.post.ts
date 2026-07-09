@@ -8,6 +8,7 @@ interface CreateBody {
   teamNames: string[]
   teamRosters?: { nickname: string; role?: 'captain' | 'player'; steamId?: string | null }[][]
   groupSize?: number
+  groupCount?: number
   qualifiers?: number
   boGroups?: number
   boMain?: number
@@ -38,6 +39,7 @@ export default defineEventHandler(async (event) => {
     teamNames,
     teamRosters: Array.isArray(body.teamRosters) ? body.teamRosters : undefined,
     groupSize: Number(body.groupSize) || undefined,
+    groupCount: Number(body.groupCount) || undefined,
     qualifiers: Number(body.qualifiers) || undefined,
     boGroups: Number(body.boGroups) || undefined,
     boMain: Number(body.boMain) || undefined,

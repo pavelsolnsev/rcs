@@ -61,6 +61,10 @@ export const tournaments = mysqlTable('tournaments', {
   boGroups: int('bo_groups').notNull().default(1),
   boMain: int('bo_main').notNull().default(1),
   boFinal: int('bo_final').notNull().default(1),
+  // Параметры группового этапа (для строгого посева в плей-офф)
+  groupSize: int('group_size'),
+  groupCount: int('group_count'),
+  groupQualifiers: int('group_qualifiers'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   finishedAt: timestamp('finished_at'),
 })

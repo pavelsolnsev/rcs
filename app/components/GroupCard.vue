@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Ref } from 'vue'
 
 interface Team { id: number; name: string; logoUrl?: string | null }
 interface Standing {
@@ -24,6 +23,7 @@ const props = defineProps<{
   rows: Standing[]
   matches: Match[]
   teamMap: Record<number, Team>
+  qualifiers?: number
   editable?: boolean
   /** Режим обмена команд между группами */
   swapMode?: boolean
@@ -37,18 +37,29 @@ const emit = defineEmits<{
   ]
   pick: [teamId: number]
   delete: [id: number]
+  reorder: [p: { matchId: number; order: number }]
 }>()
 
-// Пока в этой группе редактируется матч — показываем только его, остальные прячем,
-// чтобы не было открыто несколько игр сразу.
-const openMatchId = inject<Ref<number | null>>('openMatchId', ref(null))
-const visibleMatches = computed(() => {
-  const openId = openMatchId.value
-  if (openId != null && props.matches.some((m) => m.id === openId)) {
-    return props.matches.filter((m) => m.id === openId)
-  }
-  return props.matches
-})
+const orderDraft = ref<Record<number, number>>({})
+watch(
+  () => props.matches,
+  (list) => {
+    const next: Record<number, number> = {}
+    for (const m of list) next[m.id] = m.position + 1
+    orderDraft.value = next
+  },
+  { immediate: true, deep: true },
+)
+
+// Номер матча по счёту в группе (props.matches уже отсортирован по position родителем).
+function orderIndex(matchId: number) {
+  return props.matches.findIndex((m) => m.id === matchId)
+}
+function applyOrder(matchId: number) {
+  const raw = Number(orderDraft.value[matchId])
+  if (!Number.isFinite(raw)) return
+  emit('reorder', { matchId, order: Math.max(1, Math.floor(raw)) })
+}
 </script>
 
 <template>
@@ -56,6 +67,9 @@ const visibleMatches = computed(() => {
     <div class="mb-3 flex items-center gap-2">
       <span class="rounded-md bg-brand/15 px-2 py-0.5 text-sm font-bold text-brand">
         Группа {{ label }}
+      </span>
+      <span class="rounded-md border border-teal-500/35 bg-teal-500/12 px-2 py-0.5 text-[11px] font-semibold text-teal-300">
+        Выходят: {{ qualifiers ?? 2 }}
       </span>
     </div>
 
@@ -77,7 +91,7 @@ const visibleMatches = computed(() => {
           v-for="(s, i) in rows"
           :key="s.teamId"
           class="border-t border-border"
-          :class="i < 2 ? 'text-white' : 'text-slate-400'"
+          :class="i < (qualifiers ?? 2) ? 'text-white' : 'text-slate-400'"
         >
           <td class="py-1.5 font-medium">
             <!-- В режиме обмена — кликабельная команда -->
@@ -98,7 +112,7 @@ const visibleMatches = computed(() => {
             <span v-else class="flex items-center gap-1.5">
               <span
                 class="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                :class="i < 2 ? 'bg-teal-400' : 'bg-transparent'"
+                :class="i < (qualifiers ?? 2) ? 'bg-teal-400' : 'bg-transparent'"
               />
               <span class="truncate">{{ teamMap[s.teamId]?.name ?? '—' }}</span>
             </span>
@@ -113,17 +127,37 @@ const visibleMatches = computed(() => {
       </tbody>
     </table>
 
-    <!-- Матчи группы (в правке остаётся только редактируемый матч) -->
+    <!-- Матчи группы -->
     <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <MatchCard
-        v-for="m in visibleMatches"
-        :key="m.id"
-        :match="m"
-        :team-map="teamMap"
-        :editable="editable"
-        @save="emit('save', $event)"
-        @delete="emit('delete', $event)"
-      />
+      <div v-for="m in matches" :key="m.id">
+        <div class="mb-1 flex items-center justify-between gap-2">
+          <span class="text-[11px] font-semibold text-slate-500">Матч {{ orderIndex(m.id) + 1 }}</span>
+          <div v-if="editable" class="flex items-center gap-1.5">
+            <input
+              v-model.number="orderDraft[m.id]"
+              type="number"
+              min="1"
+              :max="matches.length"
+              class="w-14 rounded-md border border-border bg-surface-2 px-2 py-1 text-xs text-white outline-none focus:border-brand"
+            />
+            <button
+              type="button"
+              class="cursor-pointer rounded-md border border-border px-2 py-1 text-xs text-slate-300 transition-colors hover:border-brand hover:text-white"
+              title="Применить порядок"
+              @click="applyOrder(m.id)"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+        <MatchCard
+          :match="m"
+          :team-map="teamMap"
+          :editable="editable"
+          @save="emit('save', $event)"
+          @delete="emit('delete', $event)"
+        />
+      </div>
     </div>
   </div>
 </template>

@@ -8,7 +8,7 @@ interface Match {
   winnerTeamId: number | null; nextMatchId: number | null; label?: string | null
 }
 
-const props = defineProps<{ matches: Match[]; teams: Team[]; editable?: boolean }>()
+const props = defineProps<{ matches: Match[]; teams: Team[]; qualifiers?: number; editable?: boolean }>()
 const emit = defineEmits<{
   save: [
     p: { id: number; scoreA: number; scoreB: number; status: string; bestOf?: number; maps?: unknown },
@@ -16,6 +16,7 @@ const emit = defineEmits<{
   seedPlayoff: []
   swapTeams: [p: { teamA: number; teamB: number }]
   delete: [id: number]
+  reorder: [p: { matchId: number; order: number }]
 }>()
 
 const teamMap = computed<Record<number, Team>>(() => {
@@ -101,12 +102,14 @@ function onPickSwapTeam(teamId: number) {
           :rows="rowsOfGroup(label)"
           :matches="matchesOfGroup(label)"
           :team-map="teamMap"
+          :qualifiers="props.qualifiers"
           :editable="editable"
           :swap-mode="swapMode"
           :swap-pick="swapPick"
           @save="emit('save', $event)"
           @pick="onPickSwapTeam"
           @delete="emit('delete', $event)"
+          @reorder="emit('reorder', $event)"
         />
       </div>
     </section>
