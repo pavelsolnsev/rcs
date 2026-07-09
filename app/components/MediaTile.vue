@@ -28,16 +28,19 @@ const broken = ref(false)
         class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         @error="broken = true"
       />
-      <!-- Заглушка: нет превью или ссылка не является медиа -->
+      <!-- Заглушка: нет превью или ссылка не является медиа. Лого — водяной знак в углу,
+           чтобы не перекрываться со значком play по центру (для видео). -->
       <div
         v-else
-        class="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-surface-2 to-bg px-2 text-center text-slate-500"
+        class="relative flex h-full w-full items-start justify-start overflow-hidden bg-gradient-to-br from-surface-2 to-bg p-2.5 text-center text-slate-500"
       >
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <rect x="2" y="4" width="20" height="16" rx="2" />
-          <path d="M2 8h20M7 4v4M17 4v4M7 16v4M17 16v4" />
-        </svg>
-        <span v-if="broken" class="text-[10px] leading-tight">Ссылка не открывается</span>
+        <div
+          class="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-brand/15 blur-2xl"
+        />
+        <AppLogo :size="28" class="relative opacity-50" />
+        <span v-if="broken" class="absolute inset-x-2 bottom-2 text-[10px] leading-tight">
+          Ссылка не открывается
+        </span>
       </div>
 
       <!-- Значок видео -->
