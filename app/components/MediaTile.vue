@@ -28,16 +28,14 @@ const broken = ref(false)
         class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         @error="broken = true"
       />
-      <!-- Заглушка: нет превью или ссылка не является медиа. Лого — водяной знак в углу,
-           чтобы не перекрываться со значком play по центру (для видео). -->
+      <!-- Заглушка: нет превью или ссылка не является медиа. Фон — фирменная картинка
+           (прицел + хекс-сетка), лого — водяной знак в углу поверх неё, не мешает play. -->
       <div
         v-else
-        class="relative flex h-full w-full items-start justify-start overflow-hidden bg-gradient-to-br from-surface-2 to-bg p-2.5 text-center text-slate-500"
+        class="relative flex h-full w-full items-start justify-start overflow-hidden bg-gradient-to-br from-surface-2 to-bg bg-cover bg-center p-2.5 text-center text-slate-500"
+        style="background-image: url('/media-placeholder.svg')"
       >
-        <div
-          class="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-brand/15 blur-2xl"
-        />
-        <AppLogo :size="28" class="relative opacity-50" />
+        <AppLogo :size="28" class="relative opacity-60 drop-shadow" />
         <span v-if="broken" class="absolute inset-x-2 bottom-2 text-[10px] leading-tight">
           Ссылка не открывается
         </span>

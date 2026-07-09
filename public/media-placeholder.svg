@@ -1,0 +1,38 @@
+<svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#23a83e" stop-opacity="0.28" />
+      <stop offset="100%" stop-color="#23a83e" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Хекс-сетка фоном -->
+  <g stroke="#23a83e" stroke-opacity="0.10" stroke-width="1.5">
+    <path d="M40 40 68 24 96 40 96 72 68 88 40 72Z" />
+    <path d="M96 40 124 24 152 40 152 72 124 88 96 72Z" />
+    <path d="M68 88 96 72 124 88 124 120 96 136 68 120Z" />
+    <path d="M300 300 328 284 356 300 356 332 328 348 300 332Z" />
+    <path d="M270 250 298 234 326 250 326 282 298 298 270 282Z" />
+    <path d="M330 210 358 194 386 210 386 242 358 258 330 242Z" />
+  </g>
+
+  <!-- Свечение позади прицела -->
+  <circle cx="230" cy="180" r="150" fill="url(#glow)" />
+
+  <!-- Прицел -->
+  <g stroke="#23a83e" stroke-opacity="0.45" stroke-width="2">
+    <circle cx="230" cy="180" r="72" />
+    <circle cx="230" cy="180" r="46" stroke-opacity="0.3" />
+    <line x1="230" y1="86" x2="230" y2="122" />
+    <line x1="230" y1="238" x2="230" y2="274" />
+    <line x1="136" y1="180" x2="172" y2="180" />
+    <line x1="288" y1="180" x2="324" y2="180" />
+  </g>
+  <circle cx="230" cy="180" r="3.5" fill="#2dd4bf" fill-opacity="0.7" />
+
+  <!-- Диагональные акцентные линии -->
+  <g stroke="#2dd4bf" stroke-opacity="0.12" stroke-width="1.5">
+    <line x1="0" y1="330" x2="180" y2="150" />
+    <line x1="20" y1="380" x2="230" y2="170" />
+  </g>
+</svg>
