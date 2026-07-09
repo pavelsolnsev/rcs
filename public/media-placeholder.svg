@@ -17,22 +17,22 @@
   </g>
 
   <!-- Свечение позади прицела -->
-  <circle cx="230" cy="180" r="150" fill="url(#glow)" />
+  <circle cx="200" cy="200" r="150" fill="url(#glow)" />
 
-  <!-- Прицел -->
+  <!-- Прицел: строго по центру, совпадает с кнопкой play поверх картинки -->
   <g stroke="#23a83e" stroke-opacity="0.45" stroke-width="2">
-    <circle cx="230" cy="180" r="72" />
-    <circle cx="230" cy="180" r="46" stroke-opacity="0.3" />
-    <line x1="230" y1="86" x2="230" y2="122" />
-    <line x1="230" y1="238" x2="230" y2="274" />
-    <line x1="136" y1="180" x2="172" y2="180" />
-    <line x1="288" y1="180" x2="324" y2="180" />
+    <circle cx="200" cy="200" r="72" />
+    <circle cx="200" cy="200" r="46" stroke-opacity="0.3" />
+    <line x1="200" y1="106" x2="200" y2="142" />
+    <line x1="200" y1="258" x2="200" y2="294" />
+    <line x1="106" y1="200" x2="142" y2="200" />
+    <line x1="258" y1="200" x2="294" y2="200" />
   </g>
-  <circle cx="230" cy="180" r="3.5" fill="#2dd4bf" fill-opacity="0.7" />
+  <circle cx="200" cy="200" r="3.5" fill="#2dd4bf" fill-opacity="0.7" />
 
   <!-- Диагональные акцентные линии -->
   <g stroke="#2dd4bf" stroke-opacity="0.12" stroke-width="1.5">
     <line x1="0" y1="330" x2="180" y2="150" />
-    <line x1="20" y1="380" x2="230" y2="170" />
+    <line x1="20" y1="380" x2="200" y2="190" />
   </g>
 </svg>
