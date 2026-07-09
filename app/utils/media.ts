@@ -14,9 +14,9 @@ export function youtubeId(url: string): string | null {
   return m?.[1] ?? null
 }
 
-/** oid/id видео VK (vk.com/video-123_456, vkvideo.ru/video-123_456). */
+/** oid/id видео VK (vk.com/video-123_456, vkvideo.ru/video-123_456, vk.com/clip-123_456). */
 export function vkVideo(url: string): { oid: string; id: string } | null {
-  const m = url.match(/video(-?\d+)_(\d+)/i)
+  const m = url.match(/(?:video|clip)(-?\d+)_(\d+)/i)
   return m ? { oid: m[1]!, id: m[2]! } : null
 }
 
