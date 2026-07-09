@@ -255,23 +255,12 @@ function onEditorDelete() {
         </span>
         <span
           v-if="(match.bestOf ?? 1) > 1"
-          class="flex items-center gap-1.5 bg-bg px-2 py-1"
+          class="inline-flex items-center bg-bg px-2 py-1.5 tabular-nums"
+          :class="mapWinner(m) ? 'font-bold text-win' : 'text-slate-400'"
         >
-          <span
-            class="flex items-center gap-1 tabular-nums"
-            :class="mapWinner(m) === 'a' ? 'font-bold text-win' : 'text-slate-500'"
-          >
-            <span class="max-w-[4.5rem] truncate text-xs">{{ teamA?.name }}</span>
-            <span class="text-sm">{{ m.scoreA }}</span>
-          </span>
-          <span class="text-sm text-slate-600">:</span>
-          <span
-            class="flex items-center gap-1 tabular-nums"
-            :class="mapWinner(m) === 'b' ? 'font-bold text-win' : 'text-slate-500'"
-          >
-            <span class="text-sm">{{ m.scoreB }}</span>
-            <span class="max-w-[4.5rem] truncate text-xs">{{ teamB?.name }}</span>
-          </span>
+          <span class="text-sm leading-none">{{ m.scoreA }}</span>
+          <span class="px-1 text-sm leading-none text-slate-600">:</span>
+          <span class="text-sm leading-none">{{ m.scoreB }}</span>
         </span>
       </span>
     </div>
