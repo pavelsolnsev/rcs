@@ -41,6 +41,7 @@ interface TournamentData {
 
 const { data, pending, refresh } = await useFetch<TournamentData>(`/api/tournaments/${id}`)
 const siteUrl = computed(() => String(config.public.siteUrl || 'http://localhost:3000').replace(/\/$/, ''))
+const emptyOgImage = computed(() => `${siteUrl.value}/og-empty.svg`)
 
 function absoluteUrl(v?: string | null) {
   if (!v) return null
@@ -64,12 +65,12 @@ useSeoMeta({
   description: () => shareDescription.value,
   ogTitle: () => shareTitle.value,
   ogDescription: () => shareDescription.value,
-  ogImage: () => shareImage.value || undefined,
+  ogImage: () => emptyOgImage.value,
   ogUrl: () => sharePageUrl.value || undefined,
   twitterCard: 'summary_large_image',
   twitterTitle: () => shareTitle.value,
   twitterDescription: () => shareDescription.value,
-  twitterImage: () => shareImage.value || undefined,
+  twitterImage: () => emptyOgImage.value,
 })
 
 useHead(() => ({

@@ -4,7 +4,7 @@ const config = useRuntimeConfig()
 
 const siteUrl = computed(() => String(config.public.siteUrl || 'http://localhost:3000').replace(/\/$/, ''))
 const canonicalUrl = computed(() => `${siteUrl.value}/archive`)
-const ogImage = computed(() => `${siteUrl.value}/logo.webp`)
+const ogImage = computed(() => `${siteUrl.value}/og-empty.svg`)
 
 useSeoMeta({
   title: 'RCS — LAN-турниры CS2',
