@@ -14,8 +14,8 @@ async function logout() {
 }
 
 const nav = [
-  { to: '/', label: 'Турниры' },
-  { to: '/archive', label: 'Архив' },
+  { to: '/', label: 'Активные турниры' },
+  { to: '/archive', label: 'Завершённые турниры' },
 ]
 </script>
 
@@ -71,7 +71,7 @@ const nav = [
             to="/admin/login"
             class="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-slate-300 hover:border-brand hover:text-white"
           >
-            Вход
+            Вход в админку
           </NuxtLink>
         </div>
 
@@ -137,7 +137,7 @@ const nav = [
             to="/admin/login"
             class="block rounded-lg border border-border px-3 py-2.5 text-center text-base font-medium text-slate-200 hover:border-brand hover:text-white"
           >
-            Вход
+            Вход в админку
           </NuxtLink>
         </nav>
       </Transition>
