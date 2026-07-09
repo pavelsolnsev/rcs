@@ -3,7 +3,7 @@ import { looksLikeVideo } from '~/utils/media'
 
 const props = defineProps<{ busy?: boolean }>()
 const emit = defineEmits<{
-  submit: [p: { type: 'photo' | 'video'; url: string; caption: string }]
+  submit: [p: { type: 'photo' | 'video'; url: string; thumbUrl: string; caption: string }]
   upload: [p: { file: File; caption: string }]
   cancel: []
 }>()
@@ -16,6 +16,7 @@ const caption = ref('')
 // Режим «Ссылка»
 const type = ref<'photo' | 'video'>('photo')
 const url = ref('')
+const thumbUrl = ref('')
 const typeTouched = ref(false)
 watch(url, (v) => {
   if (!typeTouched.value && v.trim()) type.value = looksLikeVideo(v) ? 'video' : 'photo'
@@ -50,7 +51,12 @@ function setType(t: 'photo' | 'video') {
 function submit() {
   if (mode.value === 'link') {
     if (!canSubmitLink.value) return
-    emit('submit', { type: type.value, url: url.value.trim(), caption: caption.value.trim() })
+    emit('submit', {
+      type: type.value,
+      url: url.value.trim(),
+      thumbUrl: thumbUrl.value.trim(),
+      caption: caption.value.trim(),
+    })
   } else {
     if (!canSubmitFile.value || !file.value) return
     emit('upload', { file: file.value, caption: caption.value.trim() })
@@ -127,6 +133,14 @@ function submit() {
         v-model="url"
         type="url"
         :placeholder="type === 'video' ? 'YouTube / VK / ссылка на .mp4' : 'Прямая ссылка на изображение'"
+        class="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none transition-colors focus:border-brand"
+        @keydown.enter="submit"
+      />
+      <input
+        v-if="type === 'video'"
+        v-model="thumbUrl"
+        type="url"
+        placeholder="Превью (ссылка на картинку, необязательно) — для YouTube подставится само"
         class="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none transition-colors focus:border-brand"
         @keydown.enter="submit"
       />

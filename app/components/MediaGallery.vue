@@ -44,7 +44,7 @@ const filledSegments = computed(() => {
   return Math.max(0, Math.min(20, Math.round(p / 5)))
 })
 
-async function onAdd(p: { type: 'photo' | 'video'; url: string; caption: string }) {
+async function onAdd(p: { type: 'photo' | 'video'; url: string; thumbUrl: string; caption: string }) {
   busy.value = true
   try {
     await $fetch(`/api/tournaments/${props.tournamentId}/media`, { method: 'POST', body: p })
