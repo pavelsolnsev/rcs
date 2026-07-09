@@ -56,7 +56,7 @@ const shareDescription = computed(() => {
 })
 const shareImage = computed(() => {
   const mediaItem = data.value?.media?.find((m) => m.type === 'photo' && (m.thumbUrl || m.url))
-  return absoluteUrl(mediaItem?.thumbUrl || mediaItem?.url || '/logo.webp')
+  return mediaItem ? absoluteUrl(mediaItem.thumbUrl || mediaItem.url) : null
 })
 const sharePageUrl = computed(() => absoluteUrl(`/tournaments/${id}`))
 
