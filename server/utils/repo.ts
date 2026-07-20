@@ -87,6 +87,7 @@ export interface Repo {
   moveMatchOrder(matchId: number, order: number): Promise<void>
   seedPlayoff(id: number, qualifiers?: number): Promise<{ seeded: number }>
   swapGroupTeams(id: number, teamAId: number, teamBId: number): Promise<void>
+  moveTeamToGroup(id: number, teamId: number, targetLabel: string): Promise<void>
   addTeam(tournamentId: number, input: AddTeamInput): Promise<{ id: number }>
   removeTeam(teamId: number): Promise<void>
   updateTeam(teamId: number, patch: UpdateTeamInput): Promise<{ id: number }>
@@ -180,6 +181,41 @@ function resolveNewMatchPlacement(
   const position = sameBracket.filter((m) => m.round === round).length
   const bestOf = [1, 3, 5].includes(Number(input.bestOf)) ? Number(input.bestOf) : defaultBestOf
   return { bracket, round, position, bestOf }
+}
+
+/**
+ * Пересчитывает состав групп после переноса команды в другую группу.
+ * Возвращает массив групп по порядку меток (A, B, ...) для buildGroupMatches
+ * или null, если переносить нечего (команды/группы нет либо она уже там).
+ */
+function moveTeamMembership(
+  existing: { bracket: string; groupLabel: string | null; teamAId: number | null; teamBId: number | null }[],
+  teamId: number,
+  targetLabel: string,
+): number[][] | null {
+  const byLabel = new Map<string, number[]>()
+  const seen = new Set<number>()
+  const add = (label: string, id: number | null) => {
+    if (!id || seen.has(id)) return
+    seen.add(id)
+    ;(byLabel.get(label) ?? byLabel.set(label, []).get(label)!).push(id)
+  }
+  for (const m of existing) {
+    if (m.bracket !== 'group' || !m.groupLabel) continue
+    add(m.groupLabel, m.teamAId)
+    add(m.groupLabel, m.teamBId)
+  }
+  if (!byLabel.has(targetLabel)) return null
+
+  let currentLabel: string | null = null
+  for (const [label, ids] of byLabel) if (ids.includes(teamId)) currentLabel = label
+  if (currentLabel === null || currentLabel === targetLabel) return null
+
+  byLabel.set(currentLabel, byLabel.get(currentLabel)!.filter((x) => x !== teamId))
+  byLabel.get(targetLabel)!.push(teamId)
+  // Пустые группы (если из группы ушла последняя команда) не создают матчей,
+  // но слот сохраняем, чтобы буквы остальных групп не сдвинулись.
+  return [...byLabel.keys()].sort().map((l) => byLabel.get(l)!)
 }
 
 /** Меняет две команды местами в наборе групповых матчей и сбрасывает затронутые результаты. */
@@ -596,6 +632,24 @@ class MysqlRepo implements Repo {
         })
         .where(eq(matches.id, m.id))
     }
+  }
+
+  async moveTeamToGroup(id: number, teamId: number, targetLabel: string) {
+    const [t] = await this.db.select().from(tournaments).where(eq(tournaments.id, id))
+    if (!t) throw createError({ statusCode: 404, statusMessage: 'Турнир не найден' })
+    const groupMatches = await this.db
+      .select()
+      .from(matches)
+      .where(and(eq(matches.tournamentId, id), eq(matches.bracket, 'group')))
+    const membership = moveTeamMembership(groupMatches, teamId, targetLabel)
+    if (!membership) return
+
+    // Перегенерируем групповые матчи под новый состав (счёт групп сбрасывается).
+    await this.db.delete(matches).where(and(eq(matches.tournamentId, id), eq(matches.bracket, 'group')))
+    let local = 0
+    const rows = buildGroupMatches(membership, () => ++local)
+    applyBestOf(rows, { groups: t.boGroups, main: t.boMain, final: t.boFinal })
+    await persistRows(this.db, id, rows)
   }
 
   // Пересобирает матчи турнира под текущий список команд (после добавления/удаления).
@@ -1065,6 +1119,19 @@ class MemoryRepo implements Repo {
       m.winnerTeamId = null
       m.maps = null
     }
+  }
+
+  async moveTeamToGroup(id: number, teamId: number, targetLabel: string) {
+    const t = this.tournaments.find((x) => x.id === id)
+    if (!t) throw createError({ statusCode: 404, statusMessage: 'Турнир не найден' })
+    const groupMatches = this.matches.filter((m) => m.tournamentId === id && m.bracket === 'group')
+    const membership = moveTeamMembership(groupMatches, teamId, targetLabel)
+    if (!membership) return
+
+    this.matches = this.matches.filter((m) => !(m.tournamentId === id && m.bracket === 'group'))
+    const rows = buildGroupMatches(membership, this.id)
+    applyBestOf(rows, { groups: t.boGroups, main: t.boMain, final: t.boFinal })
+    for (const r of rows) this.matches.push({ ...r, tournamentId: id })
   }
 
   private rebuildBracket(tournamentId: number) {

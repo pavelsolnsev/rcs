@@ -15,6 +15,7 @@ const emit = defineEmits<{
   ]
   seedPlayoff: []
   swapTeams: [p: { teamA: number; teamB: number }]
+  moveTeam: [p: { teamId: number; targetLabel: string }]
   delete: [id: number]
   reorder: [p: { matchId: number; order: number }]
 }>()
@@ -69,6 +70,14 @@ function onPickSwapTeam(teamId: number) {
   emit('swapTeams', { teamA: swapPick.value, teamB: teamId })
   swapPick.value = null
 }
+
+// Перетаскивание команды между группами
+const draggingTeamId = ref<number | null>(null)
+function onDropTeam(targetLabel: string) {
+  const teamId = draggingTeamId.value
+  draggingTeamId.value = null
+  if (teamId != null) emit('moveTeam', { teamId, targetLabel })
+}
 </script>
 
 <template>
@@ -92,6 +101,9 @@ function onPickSwapTeam(teamId: number) {
           <span v-if="swapMode" class="text-xs text-slate-400">
             Выбери 2 команды в любых группах
           </span>
+          <span v-else class="hidden text-xs text-slate-500 sm:inline">
+            Перетащи команду в другую группу
+          </span>
         </div>
       </div>
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -106,10 +118,14 @@ function onPickSwapTeam(teamId: number) {
           :editable="editable"
           :swap-mode="swapMode"
           :swap-pick="swapPick"
+          :dragging-team-id="draggingTeamId"
           @save="emit('save', $event)"
           @pick="onPickSwapTeam"
           @delete="emit('delete', $event)"
           @reorder="emit('reorder', $event)"
+          @dragteam="draggingTeamId = $event"
+          @dragend="draggingTeamId = null"
+          @dropteam="onDropTeam"
         />
       </div>
     </section>

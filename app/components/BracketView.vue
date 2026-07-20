@@ -21,6 +21,7 @@ const emit = defineEmits<{
   ]
   seedPlayoff: []
   swapTeams: [p: { teamA: number; teamB: number }]
+  moveTeam: [p: { teamId: number; targetLabel: string }]
   addMatch: [
     p: {
       bracket: string
@@ -101,6 +102,7 @@ provide('openMatchId', openMatchId)
       @save="emit('save', $event)"
       @seed-playoff="emit('seedPlayoff')"
       @swap-teams="emit('swapTeams', $event)"
+      @move-team="emit('moveTeam', $event)"
       @delete="emit('deleteMatch', $event)"
       @reorder="emit('reorderMatches', $event)"
     />

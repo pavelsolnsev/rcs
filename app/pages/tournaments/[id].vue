@@ -226,6 +226,19 @@ async function swapGroupTeams(payload: { teamA: number; teamB: number }) {
   }
 }
 
+async function moveTeamToGroup(payload: { teamId: number; targetLabel: string }) {
+  try {
+    await $fetch(`/api/tournaments/${id}/move-team`, {
+      method: 'POST',
+      body: payload,
+    })
+    if (editMode.value) dirty.value = true
+    await refresh()
+  } catch (e: any) {
+    error(e?.data?.statusMessage || 'Не удалось перенести команду')
+  }
+}
+
 // Команды добавлены/удалены/изменены — сетка могла перестроиться, обновляем данные.
 async function onTeamsChanged() {
   if (editMode.value) dirty.value = true
@@ -413,6 +426,7 @@ async function deleteMatch(matchId: number) {
         @save="saveMatch"
         @seed-playoff="seedPlayoff"
         @swap-teams="swapGroupTeams"
+        @move-team="moveTeamToGroup"
         @add-match="addMatch"
         @delete-match="deleteMatch"
         @reorder-matches="reorderMatches"

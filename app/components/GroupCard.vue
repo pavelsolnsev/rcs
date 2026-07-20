@@ -29,6 +29,8 @@ const props = defineProps<{
   swapMode?: boolean
   /** Выбранная для обмена команда (подсвечивается) */
   swapPick?: number | null
+  /** Команда, которую сейчас перетаскивают (для подсветки зоны сброса) */
+  draggingTeamId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -38,7 +40,23 @@ const emit = defineEmits<{
   pick: [teamId: number]
   delete: [id: number]
   reorder: [p: { matchId: number; order: number }]
+  dragteam: [teamId: number]
+  dragend: []
+  dropteam: [targetLabel: string]
 }>()
+
+// Перетаскивание доступно, когда можно править и не активен режим обмена кликом.
+const dragEnabled = computed(() => Boolean(props.editable) && !props.swapMode)
+const containsDragged = computed(() =>
+  props.draggingTeamId != null && props.rows.some((r) => r.teamId === props.draggingTeamId),
+)
+// Эта группа — валидная цель для сброса: идёт перетаскивание команды из ДРУГОЙ группы.
+const isDropTarget = computed(() => props.draggingTeamId != null && !containsDragged.value)
+
+function onDrop() {
+  if (props.draggingTeamId == null || containsDragged.value) return
+  emit('dropteam', props.label)
+}
 
 const orderDraft = ref<Record<number, number>>({})
 watch(
@@ -63,13 +81,21 @@ function applyOrder(matchId: number) {
 </script>
 
 <template>
-  <div class="card p-4">
+  <div
+    class="card p-4 transition-colors"
+    :class="isDropTarget ? 'border-brand/60 ring-2 ring-brand/40' : ''"
+    @dragover.prevent
+    @drop.prevent="onDrop"
+  >
     <div class="mb-3 flex items-center gap-2">
       <span class="rounded-md bg-brand/15 px-2 py-0.5 text-sm font-bold text-brand">
         Группа {{ label }}
       </span>
       <span class="rounded-md border border-teal-500/35 bg-teal-500/12 px-2 py-0.5 text-[11px] font-semibold text-teal-300">
         Выходят: {{ qualifiers ?? 2 }}
+      </span>
+      <span v-if="isDropTarget" class="ml-auto text-[11px] font-semibold text-brand">
+        Перенести сюда
       </span>
     </div>
 
@@ -109,6 +135,18 @@ function applyOrder(matchId: number) {
               <span class="shrink-0 text-xs">⇄</span>
               <span class="truncate">{{ teamMap[s.teamId]?.name ?? '—' }}</span>
             </button>
+            <!-- Обычный режим правки — перетаскивание команды в другую группу -->
+            <div
+              v-else-if="dragEnabled"
+              draggable="true"
+              class="-mx-1 flex cursor-grab items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:bg-white/5 active:cursor-grabbing"
+              :class="draggingTeamId === s.teamId ? 'opacity-40' : ''"
+              @dragstart="emit('dragteam', s.teamId)"
+              @dragend="emit('dragend')"
+            >
+              <span class="shrink-0 select-none text-xs text-slate-500">⠿</span>
+              <span class="truncate">{{ teamMap[s.teamId]?.name ?? '—' }}</span>
+            </div>
             <span v-else class="flex items-center gap-1.5">
               <span
                 class="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
