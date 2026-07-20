@@ -271,6 +271,8 @@ function onEditorDelete() {
       :best-of="match.bestOf ?? 1"
       :maps="match.maps"
       :team-size="teamSizeVal"
+      :team-a-name="teamA?.name"
+      :team-b-name="teamB?.name"
       :status="match.status"
       @save="onEditorSave"
       @cancel="closeEdit"

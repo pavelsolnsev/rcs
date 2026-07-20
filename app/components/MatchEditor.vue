@@ -35,6 +35,15 @@ const options = computed(() => mapOptions(props.teamSize))
 const activeMapIdx = ref(0)
 const isSeries = computed(() => bo.value > 1)
 
+// Пик/бан карт: пул по формату команд, применение — заполняет слоты карт.
+const showVeto = ref(false)
+const vetoPool = computed(() => mapsFor(props.teamSize))
+function applyVeto(maps: string[]) {
+  rows.value = maps.map((m) => ({ map: m, scoreA: 0, scoreB: 0 }))
+  activeMapIdx.value = 0
+  showVeto.value = false
+}
+
 function resize(n: number) {
   const next: MapRow[] = []
   for (let i = 0; i < n; i++) {
@@ -151,6 +160,25 @@ function restoreToPending() {
         BO{{ opt }}
       </button>
     </div>
+
+    <!-- Пик/бан карт -->
+    <button
+      v-if="vetoPool.length"
+      type="button"
+      class="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-brand/40 bg-brand/10 px-3 py-2 text-sm font-semibold text-brand transition-colors hover:bg-brand/20"
+      @click="showVeto = true"
+    >
+      🎯 Пик / бан карт
+    </button>
+    <MapVeto
+      v-if="showVeto"
+      :best-of="bo"
+      :pool="vetoPool"
+      :team-a-name="teamAName"
+      :team-b-name="teamBName"
+      @close="showVeto = false"
+      @apply="applyVeto"
+    />
 
     <!-- Слоты карт -->
     <div class="space-y-2">
