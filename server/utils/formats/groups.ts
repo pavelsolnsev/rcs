@@ -1,6 +1,7 @@
 import { nextPowerOfTwo, seedOrder } from '../bracket'
 import { roundLabel } from './single'
 import { newRow, type BracketRow } from './types'
+import type { Standing } from '#shared/utils/standings'
 
 export interface GroupsOpts {
   groupSize?: number // размер группы (по умолчанию 4)
@@ -134,85 +135,8 @@ export function buildGroups(
 }
 
 // ---------- Турнирная таблица ----------
-export interface Standing {
-  teamId: number
-  played: number
-  wins: number
-  draws: number
-  losses: number
-  roundsWon: number
-  roundsLost: number
-  points: number
-}
-
-/** Считает таблицу по завершённым групповым матчам. Возвращает { 'A': [...], 'B': [...] }. */
-export function computeStandings(
-  teams: { id: number; groupHint?: string | null }[],
-  matches: {
-    groupLabel: string | null
-    teamAId: number | null
-    teamBId: number | null
-    scoreA: number
-    scoreB: number
-    status: string
-    bracket: string
-  }[],
-): Record<string, Standing[]> {
-  const groupMatches = matches.filter((m) => m.bracket === 'group')
-  const stats = new Map<number, Standing>()
-  const teamGroup = new Map<number, string>()
-
-  const ensure = (id: number): Standing => {
-    if (!stats.has(id))
-      stats.set(id, {
-        teamId: id,
-        played: 0,
-        wins: 0,
-        draws: 0,
-        losses: 0,
-        roundsWon: 0,
-        roundsLost: 0,
-        points: 0,
-      })
-    return stats.get(id)!
-  }
-
-  for (const m of groupMatches) {
-    if (m.teamAId) teamGroup.set(m.teamAId, m.groupLabel!)
-    if (m.teamBId) teamGroup.set(m.teamBId, m.groupLabel!)
-    if (m.status !== 'finished' || !m.teamAId || !m.teamBId) continue
-    const a = ensure(m.teamAId)
-    const b = ensure(m.teamBId)
-    a.played++, b.played++
-    a.roundsWon += m.scoreA
-    a.roundsLost += m.scoreB
-    b.roundsWon += m.scoreB
-    b.roundsLost += m.scoreA
-    if (m.scoreA > m.scoreB) {
-      a.wins++, b.losses++, (a.points += 3)
-    } else if (m.scoreB > m.scoreA) {
-      b.wins++, a.losses++, (b.points += 3)
-    } else {
-      // Ничья — по одному очку каждой команде
-      a.draws++, b.draws++, (a.points += 1), (b.points += 1)
-    }
-  }
-
-  const byGroup: Record<string, Standing[]> = {}
-  for (const [id, s] of stats) {
-    const g = teamGroup.get(id) ?? '?'
-    ;(byGroup[g] ??= []).push(s)
-  }
-  for (const list of Object.values(byGroup)) {
-    list.sort(
-      (x, y) =>
-        y.points - x.points ||
-        y.roundsWon - y.roundsLost - (x.roundsWon - x.roundsLost) ||
-        y.roundsWon - x.roundsWon,
-    )
-  }
-  return byGroup
-}
+// Расчёт таблицы — в общем модуле shared/, чтобы отображение и посев совпадали.
+export { computeStandings } from '#shared/utils/standings'
 
 /**
  * Возвращает id команд в порядке слотов сетки плей-офф.

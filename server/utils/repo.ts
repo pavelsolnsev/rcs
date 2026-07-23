@@ -595,11 +595,10 @@ class MysqlRepo implements Repo {
   }
 
   async seedPlayoff(id: number, qualifiers?: number) {
-    const teamRows = await this.db.select().from(teams).where(eq(teams.tournamentId, id))
     const all = await this.db.select().from(matches).where(eq(matches.tournamentId, id))
     const [t] = await this.db.select().from(tournaments).where(eq(tournaments.id, id))
     const effectiveQualifiers = Number(qualifiers) || Number(t?.groupQualifiers) || 2
-    const order = computeSeedOrder(teamRows, all, effectiveQualifiers)
+    const order = computeSeedOrder(all, effectiveQualifiers)
 
     // Пересоздаём сетку плей-офф под число проходящих команд
     await this.db
@@ -1096,11 +1095,10 @@ class MemoryRepo implements Repo {
   }
 
   async seedPlayoff(id: number, qualifiers?: number) {
-    const teamRows = this.teams.filter((t) => t.tournamentId === id)
     const all = this.matches.filter((m) => m.tournamentId === id)
     const t = this.tournaments.find((x) => x.id === id)
     const effectiveQualifiers = Number(qualifiers) || Number(t?.groupQualifiers) || 2
-    const order = computeSeedOrder(teamRows, all, effectiveQualifiers)
+    const order = computeSeedOrder(all, effectiveQualifiers)
 
     this.matches = this.matches.filter((m) => !(m.tournamentId === id && m.bracket === 'playoff'))
     const rows = buildSeededPlayoff(order, this.id)
@@ -1277,12 +1275,12 @@ function hasNamedMap(maps?: { map: string | null; scoreA: number; scoreB: number
 }
 
 // ---------- Общие helper'ы сева плей-офф ----------
-function computeSeedOrder(teamRows: any[], all: any[], qualifiers: number): (number | null)[] {
+function computeSeedOrder(all: any[], qualifiers: number): (number | null)[] {
   const groupMatches = all.filter((m) => m.bracket === 'group')
   if (groupMatches.some((m) => m.status !== 'finished')) {
     throw createError({ statusCode: 400, statusMessage: 'Сначала доиграйте все матчи групп' })
   }
-  const standings = computeStandings(teamRows, all)
+  const standings = computeStandings(all)
   const labels = Object.keys(standings)
   if (!labels.length) {
     throw createError({ statusCode: 400, statusMessage: 'Группы не найдены' })
