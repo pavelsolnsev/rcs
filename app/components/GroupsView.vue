@@ -27,7 +27,9 @@ const teamMap = computed<Record<number, Team>>(() => {
 })
 
 const groupMatches = computed(() => props.matches.filter((m) => m.bracket === 'group'))
-const playoffMatches = computed(() => props.matches.filter((m) => m.bracket === 'playoff'))
+const playoffMatches = computed(() =>
+  props.matches.filter((m) => m.bracket === 'playoff' || m.bracket === 'third_place'),
+)
 
 const standings = computed(() => computeStandings(props.matches))
 const groupLabels = computed(() => Object.keys(standings.value).sort())

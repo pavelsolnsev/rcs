@@ -21,16 +21,18 @@ const teamMap = computed<Record<number, Team>>(() => {
   return m
 })
 
-// Колонки: сортируем по (ранг ветки, раунд). Гранд-финал всегда последним.
+// Колонки: сортируем по (ранг ветки, раунд). Гранд-финал и матч за 3-е место — в конце.
 const columns = computed(() => {
   const map = new Map<string, { order: number; title: string; matches: Match[] }>()
   for (const m of props.matches) {
     const isReset = m.bracket === 'grand_final_reset'
     const isGf = m.bracket === 'grand_final'
-    const key = isReset ? 'gfr' : isGf ? 'gf' : `${m.bracket}:${m.round}`
-    const order = isReset ? 100001 : isGf ? 100000 : m.round
+    const isThird = m.bracket === 'third_place'
+    const key = isReset ? 'gfr' : isGf ? 'gf' : isThird ? 'third' : `${m.bracket}:${m.round}`
+    const order = isReset ? 100001 : isGf ? 100000 : isThird ? 99999 : m.round
+    const title = isThird ? 'За 3-е место' : m.label || `Раунд ${m.round}`
     if (!map.has(key)) {
-      map.set(key, { order, title: m.label || `Раунд ${m.round}`, matches: [] })
+      map.set(key, { order, title, matches: [] })
     }
     map.get(key)!.matches.push(m)
   }

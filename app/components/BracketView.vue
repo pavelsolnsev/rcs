@@ -34,9 +34,26 @@ const emit = defineEmits<{
   ]
   deleteMatch: [id: number]
   reorderMatches: [p: { matchId: number; order: number }]
+  addThirdPlace: []
 }>()
 
 const addingMatch = ref(false)
+
+// Матч за 3-е место: доступен для одиночной сетки (single elimination и плей-офф групп),
+// когда финал уже определён и в него ведут ровно два полуфинала, а матча ещё нет.
+const hasThirdPlace = computed(() => props.matches.some((m) => m.bracket === 'third_place'))
+const canAddThirdPlace = computed(() => {
+  if (props.format !== 'single_elimination' && props.format !== 'groups_playoff') return false
+  if (hasThirdPlace.value) return false
+  if (props.matches.some((m) => m.bracket === 'grand_final' || m.bracket === 'losers')) return false
+  const bracket = props.matches.some((m) => m.bracket === 'playoff') ? 'playoff' : 'winners'
+  const inBracket = props.matches.filter((m) => m.bracket === bracket)
+  if (!inBracket.length) return false
+  const maxRound = Math.max(...inBracket.map((m) => m.round))
+  const finals = inBracket.filter((m) => m.round === maxRound)
+  if (finals.length !== 1) return false
+  return inBracket.filter((m) => m.nextMatchId === finals[0]!.id).length === 2
+})
 function onAddMatch(p: {
   bracket: string
   round: number
@@ -70,7 +87,15 @@ provide('openMatchId', openMatchId)
 <template>
   <div class="space-y-4">
     <!-- Ручное дозаполнение сетки (для прошедших/незавершённых турниров) -->
-    <div v-if="editable" class="flex justify-end">
+    <div v-if="editable" class="flex flex-wrap justify-end gap-2">
+      <button
+        v-if="canAddThirdPlace"
+        type="button"
+        class="shrink-0 cursor-pointer rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-1.5 text-sm font-semibold text-amber-300 transition hover:bg-amber-400/20"
+        @click="emit('addThirdPlace')"
+      >
+        🥉 Матч за 3-е место
+      </button>
       <button
         v-if="!addingMatch"
         type="button"
@@ -138,7 +163,7 @@ provide('openMatchId', openMatchId)
     <!-- Single Elimination -->
     <EliminationBracket
       v-else
-      :matches="matches.filter((m) => m.bracket === 'winners')"
+      :matches="matches.filter((m) => m.bracket === 'winners' || m.bracket === 'third_place')"
       :teams="teams"
       :editable="editable"
       @save="emit('save', $event)"

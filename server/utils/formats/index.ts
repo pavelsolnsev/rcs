@@ -135,6 +135,49 @@ export function championOf(
   return pick(ms.filter((m) => m.bracket === 'winners'))
 }
 
+/** План матча за 3-е место: финальная ветка + два полуфинала, чьи проигравшие в него идут. */
+export interface ThirdPlacePlan {
+  finalRound: number
+  semiIds: number[] // ровно два, в порядке слотов (a, b)
+}
+
+/**
+ * Проверяет, можно ли добавить матч за 3-е место, и находит два полуфинала.
+ * Работает для одиночной сетки на выбывание (single elimination и плей-офф групп);
+ * для double elimination не поддерживается. Чистая функция — не бросает h3-ошибок.
+ */
+export function planThirdPlace(
+  ms: {
+    id: number
+    bracket: string
+    round: number
+    position: number
+    nextMatchId: number | null
+  }[],
+): { ok: true; plan: ThirdPlacePlan } | { ok: false; message: string } {
+  if (ms.some((m) => m.bracket === 'grand_final' || m.bracket === 'losers'))
+    return { ok: false, message: 'Матч за 3-е место доступен только для одиночной сетки на выбывание' }
+  if (ms.some((m) => m.bracket === 'third_place'))
+    return { ok: false, message: 'Матч за 3-е место уже добавлен' }
+
+  // Финал живёт в ветке 'playoff' (группы→плей-офф) или 'winners' (single elimination).
+  const bracket = ms.some((m) => m.bracket === 'playoff') ? 'playoff' : 'winners'
+  const inBracket = ms.filter((m) => m.bracket === bracket)
+  if (!inBracket.length) return { ok: false, message: 'Сначала сформируйте плей-офф' }
+
+  const maxRound = Math.max(...inBracket.map((m) => m.round))
+  const finals = inBracket.filter((m) => m.round === maxRound)
+  if (finals.length !== 1) return { ok: false, message: 'Не удалось однозначно определить финал' }
+
+  const semis = inBracket
+    .filter((m) => m.nextMatchId === finals[0]!.id)
+    .sort((a, b) => a.position - b.position)
+  if (semis.length !== 2)
+    return { ok: false, message: 'Для матча за 3-е место нужны два полуфинала' }
+
+  return { ok: true, plan: { finalRound: finals[0]!.round, semiIds: semis.map((s) => s.id) } }
+}
+
 /**
  * Что записать в матч-ресет при завершении гранд-финала (GF1).
  * Ресет активируется (обе команды), только если победил игрок из слота B (сторона LB);

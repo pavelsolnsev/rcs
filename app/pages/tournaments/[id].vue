@@ -262,6 +262,16 @@ async function addMatch(payload: {
   }
 }
 
+async function addThirdPlace() {
+  try {
+    await $fetch(`/api/tournaments/${id}/third-place`, { method: 'POST' })
+    if (editMode.value) dirty.value = true
+    await refresh()
+  } catch (e: any) {
+    error(e?.data?.statusMessage || 'Не удалось добавить матч за 3-е место')
+  }
+}
+
 async function reorderMatches(payload: { matchId: number; order: number }) {
   try {
     await $fetch('/api/matches/reorder', { method: 'POST', body: payload })
@@ -428,6 +438,7 @@ async function deleteMatch(matchId: number) {
         @swap-teams="swapGroupTeams"
         @move-team="moveTeamToGroup"
         @add-match="addMatch"
+        @add-third-place="addThirdPlace"
         @delete-match="deleteMatch"
         @reorder-matches="reorderMatches"
       />

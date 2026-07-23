@@ -12,6 +12,7 @@ import {
   grandFinalResetPlacements,
   autoAdvanceByes,
   applyBestOf,
+  planThirdPlace,
   type BracketRow,
   type BuildOpts,
 } from './formats'
@@ -83,6 +84,7 @@ export interface Repo {
   finishTournament(id: number): Promise<{ championTeamId: number | null }>
   updateMatch(id: number, patch: MatchPatch): Promise<{ winnerTeamId: number | null }>
   addMatch(tournamentId: number, input: AddMatchInput): Promise<{ id: number }>
+  addThirdPlaceMatch(tournamentId: number): Promise<{ id: number }>
   deleteMatch(id: number): Promise<void>
   moveMatchOrder(matchId: number, order: number): Promise<void>
   seedPlayoff(id: number, qualifiers?: number): Promise<{ seeded: number }>
@@ -529,6 +531,48 @@ class MysqlRepo implements Repo {
     return { id: created!.id }
   }
 
+  async addThirdPlaceMatch(tournamentId: number) {
+    const [t] = await this.db.select().from(tournaments).where(eq(tournaments.id, tournamentId))
+    if (!t) throw createError({ statusCode: 404, statusMessage: 'Турнир не найден' })
+    const all = await this.db.select().from(matches).where(eq(matches.tournamentId, tournamentId))
+    const res = planThirdPlace(all)
+    if (!res.ok) throw createError({ statusCode: 400, statusMessage: res.message })
+
+    const bestOf = [1, 3, 5].includes(Number(t.boFinal)) ? Number(t.boFinal) : 1
+    const [created] = await this.db
+      .insert(matches)
+      .values({
+        tournamentId,
+        bracket: 'third_place',
+        round: res.plan.finalRound,
+        position: 0,
+        bestOf,
+        status: 'pending',
+        label: 'Матч за 3-е место',
+      })
+      .$returningId()
+    const tpId = created!.id
+
+    // Проигравшие полуфиналов идут в матч за 3-е место (a — первый полуфинал, b — второй).
+    const semis = res.plan.semiIds.map((sid) => all.find((m) => m.id === sid)!)
+    for (const [i, semi] of semis.entries()) {
+      const slot: 'a' | 'b' = i === 0 ? 'a' : 'b'
+      await this.db
+        .update(matches)
+        .set({ loserNextMatchId: tpId, loserNextSlot: slot })
+        .where(eq(matches.id, semi.id))
+      // Если полуфинал уже сыгран — сразу ставим проигравшего в слот.
+      if (semi.status === 'finished' && semi.winnerTeamId) {
+        const loser = semi.winnerTeamId === semi.teamAId ? semi.teamBId : semi.teamAId
+        await this.db
+          .update(matches)
+          .set(slot === 'a' ? { teamAId: loser } : { teamBId: loser })
+          .where(eq(matches.id, tpId))
+      }
+    }
+    return { id: tpId }
+  }
+
   async deleteMatch(id: number) {
     const [m] = await this.db.select().from(matches).where(eq(matches.id, id))
     if (!m) throw createError({ statusCode: 404, statusMessage: 'Матч не найден' })
@@ -601,9 +645,10 @@ class MysqlRepo implements Repo {
     const order = computeSeedOrder(all, effectiveQualifiers)
 
     // Пересоздаём сетку плей-офф под число проходящих команд
+    // (матч за 3-е место тоже убираем — старые полуфиналы исчезают).
     await this.db
       .delete(matches)
-      .where(and(eq(matches.tournamentId, id), eq(matches.bracket, 'playoff')))
+      .where(and(eq(matches.tournamentId, id), inArray(matches.bracket, ['playoff', 'third_place'])))
     let local = 0
     const rows = buildSeededPlayoff(order, () => ++local)
     applyBestOf(rows, { main: t?.boMain ?? 1, final: t?.boFinal ?? 1 })
@@ -1042,6 +1087,53 @@ class MemoryRepo implements Repo {
     return { id }
   }
 
+  async addThirdPlaceMatch(tournamentId: number) {
+    const t = this.tournaments.find((x) => x.id === tournamentId)
+    if (!t) throw createError({ statusCode: 404, statusMessage: 'Турнир не найден' })
+    const all = this.matches.filter((m) => m.tournamentId === tournamentId)
+    const res = planThirdPlace(all)
+    if (!res.ok) throw createError({ statusCode: 400, statusMessage: res.message })
+
+    const bestOf = [1, 3, 5].includes(Number(t.boFinal)) ? Number(t.boFinal) : 1
+    const id = this.id()
+    const tp: MemMatch = {
+      id,
+      tournamentId,
+      bracket: 'third_place',
+      round: res.plan.finalRound,
+      position: 0,
+      teamAId: null,
+      teamBId: null,
+      scoreA: 0,
+      scoreB: 0,
+      bestOf,
+      status: 'pending',
+      winnerTeamId: null,
+      nextMatchId: null,
+      nextSlot: null,
+      loserNextMatchId: null,
+      loserNextSlot: null,
+      groupLabel: null,
+      label: 'Матч за 3-е место',
+      maps: null,
+    } as MemMatch
+    this.matches.push(tp)
+
+    // Проигравшие полуфиналов идут в матч за 3-е место (a — первый, b — второй).
+    const semis = res.plan.semiIds.map((sid) => this.matches.find((m) => m.id === sid)!)
+    semis.forEach((semi, i) => {
+      const slot: 'a' | 'b' = i === 0 ? 'a' : 'b'
+      semi.loserNextMatchId = id
+      semi.loserNextSlot = slot
+      if (semi.status === 'finished' && semi.winnerTeamId) {
+        const loser = semi.winnerTeamId === semi.teamAId ? semi.teamBId : semi.teamAId
+        if (slot === 'a') tp.teamAId = loser
+        else tp.teamBId = loser
+      }
+    })
+    return { id }
+  }
+
   async deleteMatch(id: number) {
     const m = this.matches.find((x) => x.id === id)
     if (!m) throw createError({ statusCode: 404, statusMessage: 'Матч не найден' })
@@ -1100,7 +1192,9 @@ class MemoryRepo implements Repo {
     const effectiveQualifiers = Number(qualifiers) || Number(t?.groupQualifiers) || 2
     const order = computeSeedOrder(all, effectiveQualifiers)
 
-    this.matches = this.matches.filter((m) => !(m.tournamentId === id && m.bracket === 'playoff'))
+    this.matches = this.matches.filter(
+      (m) => !(m.tournamentId === id && (m.bracket === 'playoff' || m.bracket === 'third_place')),
+    )
     const rows = buildSeededPlayoff(order, this.id)
     applyBestOf(rows, { main: t?.boMain ?? 1, final: t?.boFinal ?? 1 })
     for (const r of rows) this.matches.push({ ...r, tournamentId: id })
