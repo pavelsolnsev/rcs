@@ -78,6 +78,34 @@ function onDropTeam(targetLabel: string) {
   draggingTeamId.value = null
   if (teamId != null) emit('moveTeam', { teamId, targetLabel })
 }
+
+// На телефоне группы прячем в селект: видна одна выбранная (в режиме обмена — все).
+const selectedGroup = ref('')
+watch(
+  groupLabels,
+  (labels) => {
+    if (!labels.includes(selectedGroup.value)) selectedGroup.value = labels[0] ?? ''
+  },
+  { immediate: true },
+)
+const showGroupSelect = computed(() => groupLabels.value.length > 1)
+
+function teamWord(n: number) {
+  const d = n % 10
+  const h = n % 100
+  if (d === 1 && h !== 11) return 'команда'
+  if (d >= 2 && d <= 4 && (h < 10 || h >= 20)) return 'команды'
+  return 'команд'
+}
+const groupOptions = computed(() =>
+  groupLabels.value.map((l) => {
+    const n = (standings.value[l] ?? []).length
+    return { value: l, label: `Группа ${l} · ${n} ${teamWord(n)}` }
+  }),
+)
+// Скрыта ли группа на телефоне (на sm+ показываем всегда).
+const hiddenOnMobile = (label: string) =>
+  !swapMode.value && showGroupSelect.value && selectedGroup.value !== label
 </script>
 
 <template>
@@ -106,10 +134,24 @@ function onDropTeam(targetLabel: string) {
           </span>
         </div>
       </div>
+
+      <!-- Телефон: переключатель групп (десктоп показывает все) -->
+      <div v-if="showGroupSelect && !swapMode" class="mb-4 flex items-center gap-2.5 sm:hidden">
+        <span
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-lg font-extrabold text-brand ring-1 ring-brand/30"
+        >
+          {{ selectedGroup }}
+        </span>
+        <div class="min-w-0 flex-1">
+          <AppSelect v-model="selectedGroup" :options="groupOptions" />
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <GroupCard
           v-for="label in groupLabels"
           :key="label"
+          :class="{ 'hidden sm:block': hiddenOnMobile(label) }"
           :label="label"
           :rows="rowsOfGroup(label)"
           :matches="matchesOfGroup(label)"
