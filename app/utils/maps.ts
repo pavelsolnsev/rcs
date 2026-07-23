@@ -7,8 +7,6 @@ export const MAP_POOLS: Record<string, string[]> = {
     'de_nuke',
     'de_ancient',
     'de_anubis',
-    'de_overpass',
-    'de_train',
     'de_cache',
   ],
   // Пул для 2x2 (wingman)
@@ -17,12 +15,9 @@ export const MAP_POOLS: Record<string, string[]> = {
     'de_inferno',
     'de_dust2_wingman',
     'de_mirage_wingman',
-    'de_train_wingman',
     'de_anubis_wingman',
-    'gd_rialto',
+    'de_train_wingman',
     'de_overpass',
-    'de_vertigo',
-    'de_lake',
   ],
   '1x1': [],
 }
