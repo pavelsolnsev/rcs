@@ -59,23 +59,24 @@ const graphics: Card[] = [
     ],
   },
   {
-    icon: '🟥',
-    title: 'Панель AMD',
-    note: 'Radeon Software → Игры → CS2.',
-    items: [
-      'Radeon Anti-Lag — «Вкл».',
-      'Radeon Chill — «Выкл».',
-      'Wait for Vertical Refresh — «Off, unless application specifies».',
-    ],
-  },
-  {
     icon: '🎮',
     title: 'В самой игре',
     note: 'Настройки → Видео.',
     items: [
       'Режим отображения — «Полноэкранный» (Fullscreen).',
-      'Разрешение — родное для монитора, частота — максимальная.',
+      'Разрешение от sh1ro — 1152×864 (4:3, растянутое), режим сторон «Растянутый».',
+      'Частота обновления — максимальная для монитора.',
       'NVIDIA Reflex Low Latency — «Включено» или «Включено + Boost».',
+    ],
+  },
+  {
+    icon: '⚡',
+    title: 'Диспетчер задач',
+    note: 'Ctrl + Shift + Esc, при запущенной игре.',
+    items: [
+      'Вкладка «Подробности» → найти cs2.exe.',
+      'Правой кнопкой → «Задать приоритет» → «Высокий».',
+      'Сбрасывается при каждом запуске — выставляй заново.',
     ],
   },
 ]
@@ -105,6 +106,26 @@ const graphics: Card[] = [
       <div class="grid gap-4 md:grid-cols-2">
         <AdminTipCard v-for="c in graphics" :key="c.title" :card="c" />
       </div>
+    </section>
+
+    <!-- Прицел -->
+    <section class="space-y-3">
+      <h2 class="text-lg font-bold">🎯 Код прицела</h2>
+      <div class="rounded-lg border border-border bg-surface-2/50 p-3 text-sm text-slate-300">
+        Скопируй код и вставь в игре: Настройки → Прицел → «Импорт из буфера обмена».
+        Либо в консоли:
+        <code class="rounded bg-bg px-1.5 py-0.5 text-xs text-brand">apply_crosshair_code &lt;код&gt;</code>.
+      </div>
+      <CopyField text="CSGO-acNiy-swKeq-NXbeQ-MwCnY-rCKeB" />
+    </section>
+
+    <!-- Параметры запуска -->
+    <section class="space-y-3">
+      <h2 class="text-lg font-bold">🚀 Параметры запуска</h2>
+      <div class="rounded-lg border border-border bg-surface-2/50 p-3 text-sm text-slate-300">
+        Steam → CS2 → правой кнопкой → «Свойства» → «Параметры запуска» — вставь строку.
+      </div>
+      <CopyField text="-novid -nojoy +fps_max 0" />
     </section>
 
     <!-- Конфиг -->

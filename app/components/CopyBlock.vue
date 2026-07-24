@@ -1,28 +1,7 @@
 <script setup lang="ts">
 // Блок с текстом (конфиг и т.п.): копирование в буфер и скачивание файлом.
 const props = defineProps<{ text: string; filename?: string; title?: string }>()
-
-const copied = ref(false)
-let timer: ReturnType<typeof setTimeout> | undefined
-
-async function copy() {
-  try {
-    await navigator.clipboard.writeText(props.text)
-  } catch {
-    // Фолбэк для старых/небезопасных контекстов
-    const ta = document.createElement('textarea')
-    ta.value = props.text
-    ta.style.position = 'fixed'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.select()
-    document.execCommand('copy')
-    ta.remove()
-  }
-  copied.value = true
-  clearTimeout(timer)
-  timer = setTimeout(() => (copied.value = false), 1800)
-}
+const { copied, copy } = useCopy()
 
 function download() {
   const blob = new Blob([props.text], { type: 'text/plain;charset=utf-8' })
@@ -33,8 +12,6 @@ function download() {
   a.click()
   URL.revokeObjectURL(url)
 }
-
-onBeforeUnmount(() => clearTimeout(timer))
 </script>
 
 <template>
@@ -55,7 +32,7 @@ onBeforeUnmount(() => clearTimeout(timer))
           type="button"
           class="cursor-pointer rounded-md px-2.5 py-1 text-xs font-semibold transition"
           :class="copied ? 'bg-brand/20 text-brand' : 'border border-brand/50 bg-brand/10 text-brand hover:bg-brand/20'"
-          @click="copy"
+          @click="copy(text)"
         >
           {{ copied ? '✓ Скопировано' : '⧉ Копировать' }}
         </button>
