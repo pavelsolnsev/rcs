@@ -54,6 +54,12 @@ const nav = [
         <div class="ml-auto hidden items-center gap-2 sm:flex">
           <template v-if="loggedIn">
             <NuxtLink
+              to="/admin/cs2-setup"
+              class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-400 transition-colors hover:bg-surface hover:text-white"
+            >
+              Настройка CS2
+            </NuxtLink>
+            <NuxtLink
               to="/admin"
               class="rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90"
             >
@@ -119,6 +125,12 @@ const nav = [
           <div class="my-2 border-t border-border" />
 
           <template v-if="loggedIn">
+            <NuxtLink
+              to="/admin/cs2-setup"
+              class="mb-2 block rounded-lg border border-border px-3 py-2.5 text-center text-base font-medium text-slate-200 hover:border-brand hover:text-white"
+            >
+              Настройка CS2
+            </NuxtLink>
             <NuxtLink
               to="/admin"
               class="block rounded-lg bg-brand px-3 py-2.5 text-center text-base font-semibold text-white"

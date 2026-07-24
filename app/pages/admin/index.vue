@@ -227,7 +227,15 @@ async function removeTournament(id: number, name: string) {
 
 <template>
   <div class="space-y-8">
-    <h1 class="text-2xl font-extrabold">Панель администратора</h1>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-2xl font-extrabold">Панель администратора</h1>
+      <NuxtLink
+        to="/admin/cs2-setup"
+        class="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-brand hover:text-white"
+      >
+        🎯 Настройка CS2 — памятка
+      </NuxtLink>
+    </div>
 
     <div class="grid gap-6 lg:grid-cols-5">
       <!-- Создание турнира -->
