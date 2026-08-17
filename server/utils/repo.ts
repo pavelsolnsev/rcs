@@ -16,7 +16,9 @@ import {
   type BracketRow,
   type BuildOpts,
 } from './formats'
-import { computeStandings, seedPlayoffOrder, buildEmptyElim, buildGroupMatches } from './formats/groups'
+import { seedPlayoffOrder, buildEmptyElim, buildGroupMatches } from './formats/groups'
+// Расчёт таблицы — в общем модуле shared/, чтобы отображение и посев совпадали.
+import { computeStandings } from '#shared/utils/standings'
 import { deleteUploadByUrl, getTournamentMediaUsage } from './uploads'
 
 /** Кэш времени начала live-матча (серверный процесс). */
