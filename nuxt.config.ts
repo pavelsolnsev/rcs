@@ -85,6 +85,11 @@ export default defineNuxtConfig({
     dbName: process.env.DB_NAME,
     session: {
       password: process.env.NUXT_SESSION_PASSWORD || '',
+      // Без maxAge h3 не ставит Expires, и кук становится сессионным — браузер
+      // удаляет его при закрытии, из-за чего админ каждый раз вылетал.
+      // Год: заходим в админку один раз и остаёмся в ней. Отсчёт идёт от входа,
+      // продлить его на лету нельзя — h3 считает срок от createdAt сессии.
+      maxAge: 60 * 60 * 24 * 365,
       cookie: {
         sameSite: 'lax',
         // Для LAN/HTTP в dev cookie должна быть без Secure, иначе мобильный браузер её не отправит.
