@@ -10,7 +10,8 @@
     "postinstall": "nuxt prepare",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
-    "db:seed": "node --env-file=.env --import tsx server/db/seed.ts"
+    "db:seed": "node --env-file=.env --import tsx server/db/seed.ts",
+    "splash:generate": "node scripts/generate-splash.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
