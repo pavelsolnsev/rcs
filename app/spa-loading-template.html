@@ -1,0 +1,86 @@
+<!-- До загрузки Vue/Tailwind — только HTML + встроенный CSS. Логотип РКС на тёмном
+     фоне и спиннер: кольцо с зелёной полоской (border-top), вращение через @keyframes. -->
+<div class="app">
+  <style>
+    html,
+    body {
+      height: 100%;
+    }
+    body {
+      margin: 0;
+      background: #0a0b0f;
+      color: #e6e8ee;
+    }
+    .app {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      display: grid;
+      justify-items: center;
+      gap: 14px;
+    }
+    /* Лого круглое — исходник это эмблема на белом квадрате, как в AppLogo.vue */
+    .icon {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+    }
+    .row {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .title {
+      font:
+        700 14px/1.2 system-ui,
+        -apple-system,
+        Segoe UI,
+        Roboto,
+        Arial,
+        sans-serif;
+      color: #e6e8ee;
+    }
+    .hint {
+      font:
+        600 12px/1.2 system-ui,
+        -apple-system,
+        Segoe UI,
+        Roboto,
+        Arial,
+        sans-serif;
+      color: #8b90a0;
+    }
+    /* Тонкое кольцо, яркая дуга сверху крутится — цвет бренда --color-brand */
+    .spinner {
+      box-sizing: border-box;
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      border: 3px solid rgba(35, 168, 62, 0.22);
+      border-top-color: #23a83e;
+      animation: spa-spin 0.85s linear infinite;
+    }
+    @keyframes spa-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+
+  <main class="card" aria-busy="true" aria-live="polite">
+    <img src="/logo.webp" width="96" height="96" alt="Логотип РКС" class="icon" />
+
+    <div class="row">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="title">Загружаем…</p>
+    </div>
+
+    <p class="hint">Почти готово</p>
+  </main>
+</div>

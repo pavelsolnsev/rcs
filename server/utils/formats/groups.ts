@@ -134,10 +134,6 @@ export function buildGroups(
   return buildGroupMatches(groups, allocId)
 }
 
-// ---------- Турнирная таблица ----------
-// Расчёт таблицы — в общем модуле shared/, чтобы отображение и посев совпадали.
-export { computeStandings } from '#shared/utils/standings'
-
 /**
  * Возвращает id команд в порядке слотов сетки плей-офф.
  * Отбор: сначала все первые места групп, затем вторые и т.д. (посев 1..N),
