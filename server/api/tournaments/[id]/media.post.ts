@@ -18,7 +18,10 @@ export default defineEventHandler(async (event) => {
   if (type !== 'photo' && type !== 'video') {
     throw createError({ statusCode: 400, statusMessage: 'Тип должен быть photo или video' })
   }
-  const url = String(body?.url ?? '').trim()
+  let url = String(body?.url ?? '').trim()
+  // Если вставили целиком код <iframe ... src="URL"> — берём ссылку из src
+  const srcMatch = url.match(/src\s*=\s*["']([^"']+)["']/i)
+  if (srcMatch) url = srcMatch[1]!.replace(/&amp;/g, '&').trim()
   if (!/^https?:\/\//i.test(url)) {
     throw createError({ statusCode: 400, statusMessage: 'Укажите корректную ссылку (http/https)' })
   }
