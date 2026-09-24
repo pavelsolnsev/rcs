@@ -233,7 +233,7 @@ function onEditorDelete() {
               : 'italic text-slate-600'
           "
         >
-          {{ slot.team?.name ?? 'Ожидается' }}
+          {{ slot.team?.name ?? (isAutoBye ? 'Свободный слот' : 'Ожидается') }}
         </span>
         <span
           class="min-w-7 shrink-0 text-right text-base font-bold tabular-nums"
