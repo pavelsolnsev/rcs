@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Попап редактирования матча: на телефоне — шторка снизу, на десктопе — окно по центру.
+// Попап редактирования матча — окно по центру экрана.
 // z-index ниже выпадающего списка AppSelect (100) и диалога подтверждения (200).
 defineProps<{
   title: string
@@ -25,9 +25,9 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/75 backdrop-blur-sm sm:items-center sm:p-4">
+    <div class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/75 p-3 backdrop-blur-sm sm:p-4">
       <div
-        class="flex max-h-[92dvh] w-full flex-col rounded-t-2xl border border-border bg-surface shadow-2xl shadow-black/60 sm:max-w-lg sm:rounded-2xl"
+        class="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-2xl border border-border bg-surface shadow-2xl shadow-black/60"
         role="dialog"
         aria-modal="true"
         @click.stop
@@ -54,7 +54,7 @@ onBeforeUnmount(() => {
           </button>
         </header>
 
-        <div class="min-h-0 flex-1 overflow-y-auto p-4 [padding-bottom:calc(1rem+env(safe-area-inset-bottom))]">
+        <div class="min-h-0 flex-1 overflow-y-auto p-4">
           <slot />
         </div>
       </div>

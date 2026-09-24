@@ -9,8 +9,7 @@ import {
   persistRows,
   progression,
   championOf,
-  grandFinalResetPlacements,
-  autoAdvanceByes,
+  syncBracket,
   applyBestOf,
   planThirdPlace,
   type BracketRow,
@@ -248,43 +247,6 @@ class MysqlRepo implements Repo {
   readonly kind = 'mysql' as const
   constructor(private db: MySql2Database<typeof schema>) {}
 
-  /** Допрогоняет авто-проходы (bye), чтобы в LB не оставались "висячие" матчи. */
-  private async resolveByesAfterProgress(tournamentId: number) {
-    const rows = await this.db.select().from(matches).where(eq(matches.tournamentId, tournamentId))
-    if (!rows.length) return
-    const before = new Map(
-      rows.map((r) => [
-        r.id,
-        {
-          teamAId: r.teamAId,
-          teamBId: r.teamBId,
-          status: r.status,
-          winnerTeamId: r.winnerTeamId,
-        },
-      ]),
-    )
-    autoAdvanceByes(rows as unknown as BracketRow[])
-    for (const r of rows) {
-      const prev = before.get(r.id)
-      if (!prev) continue
-      if (
-        prev.teamAId === r.teamAId &&
-        prev.teamBId === r.teamBId &&
-        prev.status === r.status &&
-        prev.winnerTeamId === r.winnerTeamId
-      ) continue
-      await this.db
-        .update(matches)
-        .set({
-          teamAId: r.teamAId,
-          teamBId: r.teamBId,
-          status: r.status as any,
-          winnerTeamId: r.winnerTeamId,
-        })
-        .where(eq(matches.id, r.id))
-    }
-  }
-
   async listTournaments() {
     const list = await this.db.select().from(tournaments).orderBy(desc(tournaments.createdAt))
     if (!list.length) return list
@@ -436,61 +398,27 @@ class MysqlRepo implements Repo {
   async updateMatch(id: number, patch: MatchPatch) {
     const [m] = await this.db.select().from(matches).where(eq(matches.id, id))
     if (!m) throw createError({ statusCode: 404, statusMessage: 'Матч не найден' })
+    const all = await this.db.select().from(matches).where(eq(matches.tournamentId, m.tournamentId))
 
-    const finished = patch.status === 'finished'
-    // При равном счёте (ничья) победителя нет
-    const winnerTeamId =
-      finished && patch.scoreA !== patch.scoreB
-        ? patch.scoreA > patch.scoreB
-          ? m.teamAId
-          : m.teamBId
-        : null
-
-    await this.db
-      .update(matches)
-      .set({
-        scoreA: patch.scoreA,
-        scoreB: patch.scoreB,
-        status: patch.status,
-        winnerTeamId,
-        ...(patch.bestOf ? { bestOf: patch.bestOf } : {}),
-        ...mapsPatch(patch),
-      })
-      .where(eq(matches.id, id))
+    // Считаем новое состояние всей сетки (продвижение, bye, ресет гранд-финала)
+    const { winnerTeamId, changes } = planMatchUpdate(all as unknown as BracketRow[], id, patch)
+    for (const c of changes) {
+      await this.db
+        .update(matches)
+        .set({
+          ...c.set,
+          ...(c.id === id
+            ? { ...(patch.bestOf ? { bestOf: patch.bestOf } : {}), ...mapsPatch(patch) }
+            : {}),
+        })
+        .where(eq(matches.id, c.id))
+    }
 
     if (patch.status === 'live' && m.status !== 'live') {
       liveStartedAtCache.set(id, new Date().toISOString())
     } else if (patch.status !== 'live') {
       liveStartedAtCache.delete(id)
     }
-
-    for (const p of progression({ ...m, winnerTeamId }, finished)) {
-      const set = p.slot === 'a' ? { teamAId: p.teamId } : { teamBId: p.teamId }
-      await this.db.update(matches).set(set).where(eq(matches.id, p.matchId))
-    }
-
-    // Гранд-финал: активируем/очищаем матч-ресет по итогу GF1
-    if (m.bracket === 'grand_final') {
-      const [reset] = await this.db
-        .select()
-        .from(matches)
-        .where(and(eq(matches.tournamentId, m.tournamentId), eq(matches.bracket, 'grand_final_reset')))
-      if (reset) {
-        const [a, b] = grandFinalResetPlacements({ ...m, winnerTeamId }, reset.id, finished)
-        const cleared = a.teamId == null
-        await this.db
-          .update(matches)
-          .set({
-            teamAId: a.teamId,
-            teamBId: b.teamId,
-            ...(cleared ? { scoreA: 0, scoreB: 0, status: 'pending', winnerTeamId: null } : {}),
-          })
-          .where(eq(matches.id, reset.id))
-      }
-    }
-
-    // После продвижения победителя/проигравшего закрываем каскадные bye-ветки.
-    await this.resolveByesAfterProgress(m.tournamentId)
 
     // Если правим уже завершённый турнир — пересчитываем чемпиона в архиве.
     const [t] = await this.db.select().from(tournaments).where(eq(tournaments.id, m.tournamentId))
@@ -826,13 +754,6 @@ class MemoryRepo implements Repo {
   private seq = 1
   private id = () => this.seq++
 
-  /** Допрогоняет авто-проходы (bye) в памяти после обновления матча. */
-  private resolveByesAfterProgress(tournamentId: number) {
-    const rows = this.matches.filter((m) => m.tournamentId === tournamentId)
-    if (!rows.length) return
-    autoAdvanceByes(rows as unknown as BracketRow[])
-  }
-
   constructor() {
     this.seedDemo('CS2 Weekly Cup #14', 'ongoing', 'single_elimination', [
       'Navi', 'Vitality', 'FaZe', 'G2', 'Spirit', 'MOUZ', 'Astralis', 'Heroic',
@@ -998,50 +919,18 @@ class MemoryRepo implements Repo {
     const m = this.matches.find((x) => x.id === id)
     if (!m) throw createError({ statusCode: 404, statusMessage: 'Матч не найден' })
     const prevStatus = m.status
-    const finished = patch.status === 'finished'
-    m.scoreA = patch.scoreA
-    m.scoreB = patch.scoreB
+    const all = this.matches.filter((x) => x.tournamentId === m.tournamentId)
+    // Считаем новое состояние всей сетки (продвижение, bye, ресет гранд-финала)
+    const { changes } = planMatchUpdate(all as unknown as BracketRow[], id, patch)
+    for (const c of changes) Object.assign(this.matches.find((x) => x.id === c.id)!, c.set)
     if (patch.bestOf) m.bestOf = patch.bestOf
     const mp = mapsPatch(patch)
     if ('maps' in mp) m.maps = mp.maps ?? null
-    m.status = patch.status
     if (patch.status === 'live' && prevStatus !== 'live') {
       liveStartedAtCache.set(id, new Date().toISOString())
     } else if (patch.status !== 'live') {
       liveStartedAtCache.delete(id)
     }
-    // При равном счёте (ничья) победителя нет
-    m.winnerTeamId =
-      finished && patch.scoreA !== patch.scoreB
-        ? patch.scoreA > patch.scoreB
-          ? m.teamAId
-          : m.teamBId
-        : null
-    for (const p of progression(m, finished)) {
-      const t = this.matches.find((x) => x.id === p.matchId)
-      if (t) (p.slot === 'a' ? (t.teamAId = p.teamId) : (t.teamBId = p.teamId))
-    }
-
-    // Гранд-финал: активируем/очищаем матч-ресет
-    if (m.bracket === 'grand_final') {
-      const reset = this.matches.find(
-        (x) => x.tournamentId === m.tournamentId && x.bracket === 'grand_final_reset',
-      )
-      if (reset) {
-        const [a, b] = grandFinalResetPlacements(m, reset.id, finished)
-        reset.teamAId = a.teamId
-        reset.teamBId = b.teamId
-        if (a.teamId == null) {
-          reset.scoreA = 0
-          reset.scoreB = 0
-          reset.status = 'pending'
-          reset.winnerTeamId = null
-        }
-      }
-    }
-
-    // После продвижения закрываем возможные "висячие" bye-ветки.
-    this.resolveByesAfterProgress(m.tournamentId)
 
     // Пересчёт чемпиона при правке архивного турнира.
     const tourney = this.tournaments.find((x) => x.id === m.tournamentId)
@@ -1413,7 +1302,7 @@ function buildSeededPlayoff(order: (number | null)[], allocId: () => number): Br
       m.teamAId = order[i * 2] ?? null
       m.teamBId = order[i * 2 + 1] ?? null
     })
-  autoAdvanceByes(rows)
+  syncBracket(rows)
   return rows
 }
 

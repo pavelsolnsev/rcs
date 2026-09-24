@@ -170,17 +170,22 @@ async function saveMatch(payload: {
   bestOf?: number
   maps?: unknown
 }) {
-  await $fetch(`/api/matches/${payload.id}`, {
-    method: 'PATCH',
-    body: {
-      scoreA: payload.scoreA,
-      scoreB: payload.scoreB,
-      status: payload.status,
-      bestOf: payload.bestOf,
-      maps: payload.maps,
-    },
-  })
-  if (editMode.value) dirty.value = true // отмечаем, что появились правки
+  try {
+    await $fetch(`/api/matches/${payload.id}`, {
+      method: 'PATCH',
+      body: {
+        scoreA: payload.scoreA,
+        scoreB: payload.scoreB,
+        status: payload.status,
+        bestOf: payload.bestOf,
+        maps: payload.maps,
+      },
+    })
+    if (editMode.value) dirty.value = true // отмечаем, что появились правки
+  } catch (e: any) {
+    // Например, откат результата, от которого уже зависят сыгранные матчи
+    error(e?.data?.statusMessage || 'Не удалось сохранить матч')
+  }
   await refresh()
 }
 

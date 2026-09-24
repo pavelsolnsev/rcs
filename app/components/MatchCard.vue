@@ -284,6 +284,7 @@ function onEditorDelete() {
         :team-a-name="teamA?.name"
         :team-b-name="teamB?.name"
         :status="match.status"
+        :allow-draw="match.bracket === 'group'"
         @save="onEditorSave"
         @persist="onEditorPersist"
         @cancel="closeEdit"

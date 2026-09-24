@@ -1,5 +1,6 @@
 import { nextPowerOfTwo, seedOrder } from '../bracket'
-import { newRow, autoAdvanceByes, type BracketRow, type Slot } from './types'
+import { newRow, type BracketRow, type Slot } from './types'
+import { syncBracket } from './sync'
 
 /**
  * Double Elimination: сетка победителей (WB) + сетка проигравших (LB) + гранд-финал.
@@ -84,19 +85,24 @@ export function buildDoubleElimination(
   }
 
   // --- Маршрутизация проигравших WB → LB ---
-  // Если LB отсутствует (например, 2 команды), дропать проигравших некуда.
-  if (lbRounds > 0) {
+  // 2 команды: LB нет, проигравший финала WB сразу идёт в гранд-финал (слот B).
+  if (lbRounds === 0) {
+    wbFinal.loserNextMatchId = grandFinal.id
+    wbFinal.loserNextSlot = 'b'
+  } else {
     // WB R1: проигравшие game i → LB R1 game floor(i/2), слот по чётности
     wb[0]!.forEach((m, i) => {
       m.loserNextMatchId = lb[0]![Math.floor(i / 2)]!.id
       m.loserNextSlot = (i % 2 === 0 ? 'a' : 'b') as Slot
     })
-    // WB раунд m (m>=2): проигравший game i → LB раунд 2(m-1), слот 'b'
+    // WB раунд m (m>=2): проигравший game i → LB раунд 2(m-1), слот 'b'.
+    // Порядок зеркальный, чтобы в LB команды не встречались повторно сразу же
+    // (проигравший WB-матча не попадает на того, кого сам только что выбил).
     for (let m = 2; m <= W; m++) {
       const lbRound = lb[2 * (m - 1) - 1]
       if (!lbRound?.length) continue
       wb[m - 1]!.forEach((match, i) => {
-        const target = lbRound[i]
+        const target = lbRound[lbRound.length - 1 - i]
         if (!target) return
         match.loserNextMatchId = target.id
         match.loserNextSlot = 'b'
@@ -105,6 +111,6 @@ export function buildDoubleElimination(
   }
 
   const rows = [...wb.flat(), ...lb.flat(), grandFinal, grandFinalReset]
-  autoAdvanceByes(rows)
+  syncBracket(rows)
   return rows
 }

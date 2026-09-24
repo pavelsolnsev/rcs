@@ -6,6 +6,7 @@ import { buildGroups, type GroupsOpts } from './groups'
 import { type BracketRow, type Slot } from './types'
 
 export * from './types'
+export * from './sync'
 
 export interface BestOfConfig {
   groups?: number

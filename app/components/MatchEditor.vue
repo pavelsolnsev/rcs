@@ -13,6 +13,8 @@ const props = defineProps<{
   teamBName?: string
   /** Текущий статус матча — от него зависит набор кнопок */
   status?: string
+  /** Можно ли завершить вничью (только групповой этап) */
+  allowDraw?: boolean
 }>()
 
 interface SavePayload {
@@ -97,6 +99,9 @@ const canFixCurrentMap = computed(() => {
 })
 // Есть ли что завершать (иначе «Завершить» недоступна)
 const hasResult = computed(() => score.value.a > 0 || score.value.b > 0)
+// В сетке на выбывание нужен победитель — ничью не завершаем
+const isDraw = computed(() => score.value.a === score.value.b)
+const canFinish = computed(() => hasResult.value && (props.allowDraw || !isDraw.value))
 
 function payload(status: string): SavePayload {
   const s = score.value
@@ -124,9 +129,9 @@ function progressStatus() {
   return active ? 'live' : 'pending'
 }
 
-// «Завершить» — фиксируем результат (равный счёт → ничья, победителя определит сервер)
+// «Завершить» — фиксируем результат (в группах равный счёт → ничья)
 function finish() {
-  if (!hasResult.value) return
+  if (!canFinish.value) return
   emitSave('finished')
 }
 // «Сохранить» — не меняем завершённость: завершённый остаётся завершённым
@@ -235,12 +240,15 @@ function restoreToPending() {
       <template v-if="!finished">
         <button
           type="button"
-          :disabled="!hasResult"
+          :disabled="!canFinish"
           class="w-full cursor-pointer rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           @click="finish"
         >
           Завершить матч
         </button>
+        <p v-if="hasResult && !canFinish" class="text-center text-xs text-amber-300">
+          Ничьей в сетке быть не может — нужен победитель
+        </p>
         <button
           v-if="isSeries && isPending"
           type="button"

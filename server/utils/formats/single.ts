@@ -1,5 +1,6 @@
 import { nextPowerOfTwo, seedOrder } from '../bracket'
-import { newRow, autoAdvanceByes, type BracketRow } from './types'
+import { newRow, type BracketRow } from './types'
+import { syncBracket } from './sync'
 
 /** Метка раунда по «расстоянию до финала». */
 export function roundLabel(fromEnd: number): string | null {
@@ -52,6 +53,6 @@ export function buildSingleElimination(
   }
 
   const rows = grid.flat()
-  autoAdvanceByes(rows)
+  syncBracket(rows)
   return rows
 }
