@@ -132,6 +132,10 @@ function onEditorSave(p: {
   emit('save', { id: props.match.id, ...p })
   closeEdit()
 }
+// Сохранение без закрытия попапа (пик/бан, фиксация счёта карты)
+function onEditorPersist(p: Parameters<typeof onEditorSave>[0]) {
+  emit('save', { id: props.match.id, ...p })
+}
 function onEditorDelete() {
   emit('delete', props.match.id)
   closeEdit()
@@ -254,7 +258,7 @@ function onEditorDelete() {
           {{ mapLabel(m.map) }}
         </span>
         <span
-          v-if="(match.bestOf ?? 1) > 1"
+          v-if="(match.bestOf ?? 1) > 1 && match.status !== 'pending'"
           class="inline-flex h-full items-center whitespace-nowrap bg-bg px-2 tabular-nums"
           :class="mapWinner(m) ? 'font-bold text-win' : 'text-slate-400'"
         >
@@ -266,18 +270,26 @@ function onEditorDelete() {
     </div>
 
     <!-- Редактор для админа -->
-    <MatchEditor
+    <MatchEditModal
       v-if="editing"
-      :best-of="match.bestOf ?? 1"
-      :maps="match.maps"
-      :team-size="teamSizeVal"
+      :title="match.label || `Матч ${match.position + 1}`"
       :team-a-name="teamA?.name"
       :team-b-name="teamB?.name"
-      :status="match.status"
-      @save="onEditorSave"
-      @cancel="closeEdit"
-      @delete="onEditorDelete"
-    />
+      @close="closeEdit"
+    >
+      <MatchEditor
+        :best-of="match.bestOf ?? 1"
+        :maps="match.maps"
+        :team-size="teamSizeVal"
+        :team-a-name="teamA?.name"
+        :team-b-name="teamB?.name"
+        :status="match.status"
+        @save="onEditorSave"
+        @persist="onEditorPersist"
+        @cancel="closeEdit"
+        @delete="onEditorDelete"
+      />
+    </MatchEditModal>
     </div>
   </div>
 </template>

@@ -454,8 +454,7 @@ class MysqlRepo implements Repo {
         status: patch.status,
         winnerTeamId,
         ...(patch.bestOf ? { bestOf: patch.bestOf } : {}),
-        ...(patch.status === 'pending' ? { maps: null } : {}),
-        ...(hasNamedMap(patch.maps) ? { maps: patch.maps } : {}),
+        ...mapsPatch(patch),
       })
       .where(eq(matches.id, id))
 
@@ -1003,8 +1002,8 @@ class MemoryRepo implements Repo {
     m.scoreA = patch.scoreA
     m.scoreB = patch.scoreB
     if (patch.bestOf) m.bestOf = patch.bestOf
-    if (patch.status === 'pending') m.maps = null
-    else if (hasNamedMap(patch.maps)) m.maps = patch.maps
+    const mp = mapsPatch(patch)
+    if ('maps' in mp) m.maps = mp.maps ?? null
     m.status = patch.status
     if (patch.status === 'live' && prevStatus !== 'live') {
       liveStartedAtCache.set(id, new Date().toISOString())
@@ -1368,6 +1367,16 @@ function buildNormalizedRosters(
 
 function hasNamedMap(maps?: { map: string | null; scoreA: number; scoreB: number }[]) {
   return Array.isArray(maps) && maps.some((m) => typeof m?.map === 'string' && Boolean(m.map))
+}
+
+/**
+ * Что записать в maps при обновлении матча. Выбранные карты сохраняем всегда
+ * (в т.ч. в ожидании — после пик/бана карты фиксируются без Live).
+ * Ожидание без карт (сброс матча) очищает их; иначе maps не трогаем.
+ */
+function mapsPatch(patch: MatchPatch): { maps?: MatchPatch['maps'] | null } {
+  if (hasNamedMap(patch.maps)) return { maps: patch.maps }
+  return patch.status === 'pending' ? { maps: null } : {}
 }
 
 // ---------- Общие helper'ы сева плей-офф ----------

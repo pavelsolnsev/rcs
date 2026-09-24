@@ -15,16 +15,18 @@ const props = defineProps<{
   status?: string
 }>()
 
+interface SavePayload {
+  maps: MapRow[]
+  scoreA: number
+  scoreB: number
+  status: string
+  bestOf: number
+}
+
 const emit = defineEmits<{
-  save: [
-    p: {
-      maps: MapRow[]
-      scoreA: number
-      scoreB: number
-      status: string
-      bestOf: number
-    },
-  ]
+  save: [p: SavePayload]
+  /** Сохранить, не закрывая редактор (пик/бан, фиксация карты) */
+  persist: [p: SavePayload]
   cancel: []
   delete: []
 }>()
@@ -35,13 +37,15 @@ const options = computed(() => mapOptions(props.teamSize))
 const activeMapIdx = ref(0)
 const isSeries = computed(() => bo.value > 1)
 
-// Пик/бан карт: пул по формату команд, применение — заполняет слоты карт.
+// Пик/бан карт: пул по формату команд, применение — заполняет слоты карт
+// и сразу сохраняет их в матч (без включения Live).
 const showVeto = ref(false)
 const vetoPool = computed(() => mapsFor(props.teamSize))
 function applyVeto(maps: string[]) {
   rows.value = maps.map((m) => ({ map: m, scoreA: 0, scoreB: 0 }))
   activeMapIdx.value = 0
   showVeto.value = false
+  if (!finished.value) emit('persist', payload(props.status || 'pending'))
 }
 
 function resize(n: number) {
@@ -94,9 +98,9 @@ const canFixCurrentMap = computed(() => {
 // Есть ли что завершать (иначе «Завершить» недоступна)
 const hasResult = computed(() => score.value.a > 0 || score.value.b > 0)
 
-function emitSave(status: string) {
+function payload(status: string): SavePayload {
   const s = score.value
-  emit('save', {
+  return {
     maps: rows.value.map((r) => ({
       map: r.map,
       scoreA: Number(r.scoreA) || 0,
@@ -106,7 +110,10 @@ function emitSave(status: string) {
     scoreB: s.b,
     status,
     bestOf: bo.value,
-  })
+  }
+}
+function emitSave(status: string) {
+  emit('save', payload(status))
 }
 
 // Статус «в процессе»: live при введённом счёте/карте, иначе pending
@@ -131,7 +138,7 @@ function startMatch() {
 }
 function fixCurrentMap() {
   if (!canFixCurrentMap.value) return
-  emitSave('live')
+  emit('persist', payload('live'))
   if (activeMapIdx.value < rows.value.length - 1) activeMapIdx.value += 1
 }
 function restoreToPending() {
@@ -142,7 +149,7 @@ function restoreToPending() {
 </script>
 
 <template>
-  <div class="space-y-2.5 border-t border-border bg-surface-2 p-3" @click.stop>
+  <div class="space-y-3" @click.stop>
     <!-- Формат матча -->
     <div class="flex items-center gap-1.5">
       <button
@@ -206,33 +213,16 @@ function restoreToPending() {
         Текущая карта: {{ activeMapIdx + 1 }} / {{ rows.length }}
       </div>
 
-      <div
+      <MatchMapRow
         v-for="(row, i) in rows"
         v-show="!isSeries || i === activeMapIdx"
         :key="i"
-        class="space-y-1.5 rounded-lg bg-bg/60 p-2"
-      >
-        <AppSelect v-model="row.map" :options="options" :placeholder="`Карта ${i + 1}`" />
-        <div class="flex items-center gap-2">
-          <input
-            v-model.number="row.scoreA"
-            type="number"
-            min="0"
-            inputmode="numeric"
-            aria-label="Счёт первой команды"
-            class="w-full min-w-0 rounded-lg border border-border bg-bg px-2 py-1.5 text-center text-base tabular-nums outline-none transition-colors focus:border-brand"
-          />
-          <span class="shrink-0 font-bold text-slate-500">:</span>
-          <input
-            v-model.number="row.scoreB"
-            type="number"
-            min="0"
-            inputmode="numeric"
-            aria-label="Счёт второй команды"
-            class="w-full min-w-0 rounded-lg border border-border bg-bg px-2 py-1.5 text-center text-base tabular-nums outline-none transition-colors focus:border-brand"
-          />
-        </div>
-      </div>
+        :model-value="row"
+        :options="options"
+        :placeholder="`Карта ${i + 1}`"
+        :team-a-name="teamAName"
+        :team-b-name="teamBName"
+      />
     </div>
 
     <!-- Итог -->
