@@ -287,23 +287,16 @@ function restoreToPending() {
         </div>
       </template>
 
-      <!-- Матч завершён: сохранить правку (остаётся завершённым) или возобновить -->
-      <template v-else>
-        <button
-          type="button"
-          class="w-full cursor-pointer rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          @click="save"
-        >
-          Сохранить
-        </button>
-        <button
-          type="button"
-          class="w-full cursor-pointer rounded-lg border border-border px-3 py-2 text-sm text-slate-400 transition-colors hover:border-slate-500 hover:text-white"
-          @click="emit('cancel')"
-        >
-          Отмена
-        </button>
-      </template>
+      <!-- Матч завершён: сохранить правку, вернуть в Live или сбросить -->
+      <MatchFinishedActions
+        v-else
+        :can-save="canFinish"
+        :draw-hint="hasResult && !canFinish"
+        @save="save"
+        @resume="emitSave('live')"
+        @reset="restoreToPending"
+        @cancel="emit('cancel')"
+      />
 
       <button
         type="button"

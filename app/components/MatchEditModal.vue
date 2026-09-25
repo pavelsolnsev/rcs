@@ -9,16 +9,19 @@ defineProps<{
 
 const emit = defineEmits<{ close: [] }>()
 
+const { confirmState } = useConfirm()
 function onKey(e: KeyboardEvent) {
-  if (e.key === 'Escape') emit('close')
+  // Esc при открытом подтверждении закрывает только его (слушаем в capture —
+  // раньше, чем диалог подтверждения успеет закрыться)
+  if (e.key === 'Escape' && !confirmState.open) emit('close')
 }
 
 onMounted(() => {
-  document.addEventListener('keydown', onKey)
+  document.addEventListener('keydown', onKey, true)
   document.documentElement.style.overflow = 'hidden'
 })
 onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onKey)
+  document.removeEventListener('keydown', onKey, true)
   document.documentElement.style.overflow = ''
 })
 </script>
