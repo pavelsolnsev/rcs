@@ -77,10 +77,7 @@ const filtered = computed(() => {
 
 <template>
   <div class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-extrabold">Завершённые турниры</h1>
-      <p class="mt-1 text-slate-400">Завершённые соревнования и их результаты.</p>
-    </div>
+    <h1 class="text-2xl font-extrabold">Завершённые турниры</h1>
 
     <TournamentFilters
       v-if="showFilters"
