@@ -116,21 +116,13 @@ const active = computed(() =>
       </div>
     </section>
 
-    <!-- Активные турниры -->
-    <section>
+    <!-- Активные турниры: секция только если они есть -->
+    <section v-if="!pending && active.length">
       <div class="mb-3">
         <h2 class="text-xl font-bold">Активные турниры</h2>
       </div>
-
-      <div v-if="pending" class="text-slate-500">Загрузка…</div>
-      <div
-        v-else-if="active.length"
-        class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-      >
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <TournamentCard v-for="t in active" :key="t.id" :tournament="t" />
-      </div>
-      <div v-else class="card px-4 py-3 text-center text-sm text-slate-500">
-        Пока нет активных турниров.
       </div>
     </section>
   </div>
