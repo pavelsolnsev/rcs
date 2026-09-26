@@ -82,6 +82,7 @@ export interface Repo {
   ): Promise<{ tournament: any; teams: any[]; matches: any[]; media?: any[]; mediaUsage?: any } | null>
   createTournament(input: CreateTournamentInput): Promise<{ id: number }>
   deleteTournament(id: number): Promise<void>
+  renameTournament(id: number, name: string): Promise<void>
   finishTournament(id: number): Promise<{ championTeamId: number | null }>
   updateMatch(id: number, patch: MatchPatch): Promise<{ winnerTeamId: number | null }>
   addMatch(tournamentId: number, input: AddMatchInput): Promise<{ id: number }>
@@ -383,6 +384,12 @@ class MysqlRepo implements Repo {
     await this.db.delete(matches).where(eq(matches.tournamentId, id))
     await this.db.delete(teams).where(eq(teams.tournamentId, id))
     await this.db.delete(tournaments).where(eq(tournaments.id, id))
+  }
+
+  async renameTournament(id: number, name: string) {
+    const [t] = await this.db.select({ id: tournaments.id }).from(tournaments).where(eq(tournaments.id, id))
+    if (!t) throw createError({ statusCode: 404, statusMessage: 'Турнир не найден' })
+    await this.db.update(tournaments).set({ name }).where(eq(tournaments.id, id))
   }
 
   async finishTournament(id: number) {
@@ -901,6 +908,12 @@ class MemoryRepo implements Repo {
     this.teams = this.teams.filter((t) => t.tournamentId !== id)
     this.matches = this.matches.filter((m) => m.tournamentId !== id)
     this.mediaItems = this.mediaItems.filter((m) => m.tournamentId !== id)
+  }
+
+  async renameTournament(id: number, name: string) {
+    const t = this.tournaments.find((x) => x.id === id)
+    if (!t) throw createError({ statusCode: 404, statusMessage: 'Турнир не найден' })
+    t.name = name
   }
 
   async finishTournament(id: number) {

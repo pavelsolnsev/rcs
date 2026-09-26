@@ -320,9 +320,14 @@ async function deleteMatch(matchId: number) {
 
     <!-- Заголовок -->
     <div class="card flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
-      <div class="space-y-2">
+      <div class="min-w-0 space-y-2 md:flex-1">
         <div class="flex flex-wrap items-center gap-2">
-          <h1 class="text-2xl font-extrabold">{{ data.tournament.name }}</h1>
+          <TournamentTitle
+            :tournament-id="data.tournament.id"
+            :name="data.tournament.name"
+            :editable="loggedIn"
+            @renamed="refresh"
+          />
           <StatusBadge :status="data.tournament.status" />
         </div>
         <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
