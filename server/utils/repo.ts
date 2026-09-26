@@ -257,6 +257,29 @@ class MysqlRepo implements Repo {
   constructor(private db: MySql2Database<typeof schema>) {}
 
   async listTournaments() {
+    const list = await this.listWithLive()
+    const champIds = list.map((t) => t.championTeamId).filter((x): x is number => x != null)
+    const champTeams = champIds.length
+      ? await this.db
+          .select({ id: teams.id, name: teams.name, logoUrl: teams.logoUrl })
+          .from(teams)
+          .where(inArray(teams.id, champIds))
+      : []
+    let photos: { tournamentId: number; url: string; thumbUrl: string | null }[] = []
+    if (champIds.length) {
+      try {
+        photos = await this.db
+          .select({ tournamentId: championPhotos.tournamentId, url: championPhotos.url, thumbUrl: championPhotos.thumbUrl })
+          .from(championPhotos)
+          .where(inArray(championPhotos.tournamentId, list.map((t) => t.id)))
+      } catch {
+        photos = [] // таблицы может не быть — просто без фото
+      }
+    }
+    return withChampions(list, champTeams, photos)
+  }
+
+  private async listWithLive() {
     const list = await this.db.select().from(tournaments).orderBy(desc(tournaments.createdAt))
     if (!list.length) return list
 
@@ -869,6 +892,11 @@ class MemoryRepo implements Repo {
   }
 
   async listTournaments() {
+    const photos = [...this.championPhotos].map(([tournamentId, p]) => ({ tournamentId, ...p }))
+    return withChampions(await this.listWithLive(), this.teams, photos)
+  }
+
+  private async listWithLive() {
     const list = [...this.tournaments].sort((a, b) => b.id - a.id)
     const nameById = new Map(this.teams.map((t) => [t.id, t.name] as const))
 
@@ -1270,6 +1298,25 @@ class MemoryRepo implements Repo {
 }
 
 // ---------- Общие helper'ы ----------
+/** Добавляет к турнирам списка команду-чемпиона и превью фото чемпиона. */
+function withChampions<T extends { id: number; championTeamId: number | null }>(
+  list: T[],
+  champTeams: { id: number; name: string; logoUrl?: string | null }[],
+  photos: { tournamentId: number; url: string; thumbUrl: string | null }[],
+) {
+  const teamById = new Map(champTeams.map((t) => [t.id, t]))
+  const photoByT = new Map(photos.map((p) => [p.tournamentId, p]))
+  return list.map((t) => {
+    const team = t.championTeamId != null ? teamById.get(t.championTeamId) : undefined
+    const photo = team ? photoByT.get(t.id) : undefined
+    return {
+      ...t,
+      champion: team ? { name: team.name, logoUrl: team.logoUrl ?? null } : null,
+      championPhotoUrl: photo ? photo.thumbUrl || photo.url : null,
+    }
+  })
+}
+
 /** Нормализует best-of: допустимы только 1/3/5, по умолчанию 1; финал/группы наследуют main. */
 function normalizeBestOf(input: CreateTournamentInput) {
   const clamp = (v: number | undefined, fallback: number) =>

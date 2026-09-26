@@ -9,6 +9,8 @@ const props = defineProps<{
     teamSize: string
     status: string
     createdAt?: string
+    champion?: { name: string; logoUrl?: string | null } | null
+    championPhotoUrl?: string | null
     liveMatches?: {
       id: number
       label: string | null
@@ -99,8 +101,13 @@ function shareMatch(m: {
 <template>
   <NuxtLink
     :to="`/tournaments/${tournament.id}`"
-    class="card group flex flex-col gap-3 p-4 transition-colors hover:border-brand/60"
+    class="card group flex flex-col gap-3 overflow-hidden p-4 transition-colors hover:border-brand/60"
   >
+    <TournamentChampionBanner
+      v-if="tournament.champion && tournament.championPhotoUrl"
+      :champion="tournament.champion"
+      :photo-url="tournament.championPhotoUrl"
+    />
     <div class="flex items-start justify-between gap-3">
       <h3 class="text-base font-bold leading-snug text-white group-hover:text-brand">
         {{ tournament.name }}
@@ -128,6 +135,10 @@ function shareMatch(m: {
         {{ tournament.teamSize }}
       </span>
     </div>
+    <TournamentChampionBanner
+      v-if="tournament.champion && !tournament.championPhotoUrl"
+      :champion="tournament.champion"
+    />
 
     <div v-if="tournament.liveMatches?.length" class="space-y-1.5">
       <div class="inline-flex items-center rounded-md bg-red-500/15 px-2 py-1 text-[11px] font-semibold text-red-300">
