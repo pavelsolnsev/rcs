@@ -9,7 +9,11 @@ const props = defineProps<{
     teamSize: string
     status: string
     createdAt?: string
-    champion?: { name: string; logoUrl?: string | null } | null
+    champion?: {
+      name: string
+      logoUrl?: string | null
+      roster?: { nickname: string; role?: string }[]
+    } | null
     championPhotoUrl?: string | null
     liveMatches?: {
       id: number

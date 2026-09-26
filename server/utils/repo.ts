@@ -261,7 +261,7 @@ class MysqlRepo implements Repo {
     const champIds = list.map((t) => t.championTeamId).filter((x): x is number => x != null)
     const champTeams = champIds.length
       ? await this.db
-          .select({ id: teams.id, name: teams.name, logoUrl: teams.logoUrl })
+          .select({ id: teams.id, name: teams.name, logoUrl: teams.logoUrl, roster: teams.roster })
           .from(teams)
           .where(inArray(teams.id, champIds))
       : []
@@ -1301,7 +1301,12 @@ class MemoryRepo implements Repo {
 /** Добавляет к турнирам списка команду-чемпиона и превью фото чемпиона. */
 function withChampions<T extends { id: number; championTeamId: number | null }>(
   list: T[],
-  champTeams: { id: number; name: string; logoUrl?: string | null }[],
+  champTeams: {
+    id: number
+    name: string
+    logoUrl?: string | null
+    roster?: { nickname?: string; role?: string }[] | null
+  }[],
   photos: { tournamentId: number; url: string; thumbUrl: string | null }[],
 ) {
   const teamById = new Map(champTeams.map((t) => [t.id, t]))
@@ -1311,7 +1316,16 @@ function withChampions<T extends { id: number; championTeamId: number | null }>(
     const photo = team ? photoByT.get(t.id) : undefined
     return {
       ...t,
-      champion: team ? { name: team.name, logoUrl: team.logoUrl ?? null } : null,
+      champion: team
+        ? {
+            name: team.name,
+            logoUrl: team.logoUrl ?? null,
+            // Только ники и роль — остальное (Steam ID и т.п.) списку не нужно
+            roster: (team.roster ?? [])
+              .filter((p) => p?.nickname?.trim())
+              .map((p) => ({ nickname: p.nickname!.trim(), role: p.role === 'captain' ? 'captain' : 'player' })),
+          }
+        : null,
       championPhotoUrl: photo ? photo.thumbUrl || photo.url : null,
     }
   })
