@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { looksLikeVideo } from '~/utils/media'
 
-const props = defineProps<{ busy?: boolean }>()
+const props = defineProps<{
+  busy?: boolean
+  /** Только фото (без видео) — например, фото чемпиона */
+  photoOnly?: boolean
+  title?: string
+}>()
 const emit = defineEmits<{
   submit: [p: { type: 'photo' | 'video'; url: string; thumbUrl: string; caption: string }]
   upload: [p: { file: File; caption: string }]
@@ -19,6 +24,7 @@ const url = ref('')
 const thumbUrl = ref('')
 const typeTouched = ref(false)
 watch(url, (v) => {
+  if (props.photoOnly) return
   if (!typeTouched.value && v.trim()) type.value = looksLikeVideo(v) ? 'video' : 'photo'
 })
 
@@ -66,7 +72,7 @@ function submit() {
 
 <template>
   <div class="card space-y-3 border-brand/40 p-4">
-    <h3 class="text-base font-bold text-white">Добавить медиа</h3>
+    <h3 class="text-base font-bold text-white">{{ title || 'Добавить медиа' }}</h3>
 
     <!-- Способ -->
     <div class="flex gap-1.5">
@@ -101,10 +107,10 @@ function submit() {
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500" aria-hidden="true">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
           </svg>
-          <span class="text-sm font-medium text-slate-300">Выбрать фото или видео</span>
-          <span class="text-[11px] text-slate-500">JPG, PNG, WebP · MP4, WebM</span>
+          <span class="text-sm font-medium text-slate-300">{{ photoOnly ? 'Выбрать фото' : 'Выбрать фото или видео' }}</span>
+          <span class="text-[11px] text-slate-500">{{ photoOnly ? 'JPG, PNG, WebP' : 'JPG, PNG, WebP · MP4, WebM' }}</span>
         </template>
-        <input type="file" accept="image/*,video/*" class="hidden" @change="onFile" />
+        <input type="file" :accept="photoOnly ? 'image/*' : 'image/*,video/*'" class="hidden" @change="onFile" />
       </label>
       <p v-if="file" class="truncate text-xs text-slate-400">
         {{ file.name }} <span class="text-slate-600">· {{ fileSizeLabel }}</span>
@@ -113,7 +119,7 @@ function submit() {
 
     <!-- По ссылке -->
     <template v-else>
-      <div class="flex gap-1.5">
+      <div v-if="!photoOnly" class="flex gap-1.5">
         <button
           v-for="opt in (['photo', 'video'] as const)"
           :key="opt"
@@ -173,7 +179,10 @@ function submit() {
       </button>
     </div>
 
-    <p v-if="mode === 'link'" class="text-[11px] leading-relaxed text-slate-500">
+    <p v-if="photoOnly" class="text-[11px] leading-relaxed text-slate-500">
+      Фото до 15 МБ или прямая ссылка на изображение (…/фото.jpg).
+    </p>
+    <p v-else-if="mode === 'link'" class="text-[11px] leading-relaxed text-slate-500">
       Видео — ссылка на YouTube или VK. Фото — прямая ссылка на изображение (…/фото.jpg).
     </p>
     <p v-else class="text-[11px] leading-relaxed text-slate-500">

@@ -125,6 +125,17 @@ export const media = mysqlTable('media', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+// ---------- Фото чемпиона (одно на турнир) ----------
+// Отдельная таблица, а не колонка в tournaments: создаётся автоматически при старте
+// (ensureChampionPhotosTable), и без неё сайт продолжает работать.
+export const championPhotos = mysqlTable('champion_photos', {
+  tournamentId: int('tournament_id').primaryKey(),
+  url: varchar('url', { length: 500 }).notNull(),
+  thumbUrl: varchar('thumb_url', { length: 500 }),
+  caption: varchar('caption', { length: 200 }),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // ---------- Связи ----------
 export const tournamentsRelations = relations(tournaments, ({ many }) => ({
   teams: many(teams),

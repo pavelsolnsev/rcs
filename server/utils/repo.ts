@@ -3,7 +3,7 @@ import mysql from 'mysql2/promise'
 import { eq, and, asc, desc, inArray } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import * as schema from '../db/schema'
-import { tournaments, teams, matches, media } from '../db/schema'
+import { tournaments, teams, matches, media, championPhotos } from '../db/schema'
 import {
   buildBracket,
   persistRows,
@@ -60,6 +60,12 @@ export interface UpdateTeamInput {
   logoUrl?: string | null
   roster?: TeamPlayerInput[]
 }
+export interface ChampionPhoto {
+  url: string
+  thumbUrl: string | null
+  caption: string | null
+}
+
 export interface AddMediaInput {
   type: 'photo' | 'video'
   url: string
@@ -97,6 +103,8 @@ export interface Repo {
   updateTeam(teamId: number, patch: UpdateTeamInput): Promise<{ id: number }>
   addMedia(tournamentId: number, input: AddMediaInput): Promise<{ id: number }>
   removeMedia(mediaId: number): Promise<void>
+  /** Ставит/убирает фото чемпиона; возвращает прежнее (чтобы удалить его файлы) */
+  setChampionPhoto(tournamentId: number, photo: ChampionPhoto | null): Promise<ChampionPhoto | null>
   verifyAdmin(username: string, password: string): Promise<{ id: number; username: string } | null>
 }
 
@@ -329,8 +337,9 @@ class MysqlRepo implements Repo {
     } catch {
       mediaRows = []
     }
-    const mediaUsage = await getTournamentMediaUsage(mediaRows)
-    return { tournament, teams: teamRows, matches: matchRows, media: mediaRows, mediaUsage }
+    const championPhoto = await this.getChampionPhoto(id)
+    const mediaUsage = await getTournamentMediaUsage([...mediaRows, ...(championPhoto ? [championPhoto] : [])])
+    return { tournament, teams: teamRows, matches: matchRows, media: mediaRows, mediaUsage, championPhoto }
   }
 
   async createTournament(input: CreateTournamentInput) {
@@ -381,6 +390,7 @@ class MysqlRepo implements Repo {
 
   async deleteTournament(id: number) {
     await this.db.delete(media).where(eq(media.tournamentId, id))
+    await this.setChampionPhoto(id, null).catch(() => null)
     await this.db.delete(matches).where(eq(matches.tournamentId, id))
     await this.db.delete(teams).where(eq(teams.tournamentId, id))
     await this.db.delete(tournaments).where(eq(tournaments.id, id))
@@ -712,6 +722,32 @@ class MysqlRepo implements Repo {
     return { id: teamId }
   }
 
+  // Таблица могла не создаться (нет прав на CREATE) — тогда фото чемпиона просто нет.
+  private async getChampionPhoto(tournamentId: number): Promise<ChampionPhoto | null> {
+    try {
+      const [row] = await this.db
+        .select()
+        .from(championPhotos)
+        .where(eq(championPhotos.tournamentId, tournamentId))
+      return row ? { url: row.url, thumbUrl: row.thumbUrl, caption: row.caption } : null
+    } catch {
+      return null
+    }
+  }
+
+  async setChampionPhoto(tournamentId: number, photo: ChampionPhoto | null) {
+    const prev = await this.getChampionPhoto(tournamentId)
+    if (photo) {
+      await this.db
+        .insert(championPhotos)
+        .values({ tournamentId, ...photo })
+        .onDuplicateKeyUpdate({ set: { ...photo, updatedAt: new Date() } })
+    } else {
+      await this.db.delete(championPhotos).where(eq(championPhotos.tournamentId, tournamentId))
+    }
+    return prev
+  }
+
   async addMedia(tournamentId: number, input: AddMediaInput) {
     const existing = await this.db.select().from(media).where(eq(media.tournamentId, tournamentId))
     const [created] = await this.db
@@ -758,6 +794,7 @@ class MemoryRepo implements Repo {
   private teams: any[] = []
   private matches: MemMatch[] = []
   private mediaItems: any[] = []
+  private championPhotos = new Map<number, ChampionPhoto>()
   private seq = 1
   private id = () => this.seq++
 
@@ -868,8 +905,10 @@ class MemoryRepo implements Repo {
     const mediaRows = this.mediaItems
       .filter((m) => m.tournamentId === id)
       .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
-    const mediaUsage = await getTournamentMediaUsage(mediaRows)
+    const championPhoto = this.championPhotos.get(id) ?? null
+    const mediaUsage = await getTournamentMediaUsage([...mediaRows, ...(championPhoto ? [championPhoto] : [])])
     return {
+      championPhoto,
       tournament,
       teams: this.teams.filter((t) => t.tournamentId === id),
       matches: this.matches
@@ -905,6 +944,7 @@ class MemoryRepo implements Repo {
 
   async deleteTournament(id: number) {
     this.tournaments = this.tournaments.filter((t) => t.id !== id)
+    this.championPhotos.delete(id)
     this.teams = this.teams.filter((t) => t.tournamentId !== id)
     this.matches = this.matches.filter((m) => m.tournamentId !== id)
     this.mediaItems = this.mediaItems.filter((m) => m.tournamentId !== id)
@@ -1191,6 +1231,13 @@ class MemoryRepo implements Repo {
     return { id: teamId }
   }
 
+  async setChampionPhoto(tournamentId: number, photo: ChampionPhoto | null) {
+    const prev = this.championPhotos.get(tournamentId) ?? null
+    if (photo) this.championPhotos.set(tournamentId, photo)
+    else this.championPhotos.delete(tournamentId)
+    return prev
+  }
+
   async addMedia(tournamentId: number, input: AddMediaInput) {
     const id = this.id()
     const count = this.mediaItems.filter((m) => m.tournamentId === tournamentId).length
@@ -1366,6 +1413,21 @@ export function useRepo(): Promise<Repo> {
   return repoPromise
 }
 
+/** Создаёт таблицу фото чемпиона, если её ещё нет (без неё сайт тоже работает). */
+async function ensureChampionPhotosTable(pool: mysql.Pool) {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS champion_photos (
+      tournament_id INT NOT NULL PRIMARY KEY,
+      url VARCHAR(500) NOT NULL,
+      thumb_url VARCHAR(500) NULL,
+      caption VARCHAR(200) NULL,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`)
+  } catch (e: any) {
+    console.warn(`[repo] Не удалось создать таблицу champion_photos: ${e?.code || e?.message}`)
+  }
+}
+
 async function initRepo(): Promise<Repo> {
   try {
     const pool = mysql.createPool({
@@ -1381,6 +1443,7 @@ async function initRepo(): Promise<Repo> {
     await conn.ping()
     conn.release()
     console.log('[repo] Подключение к MySQL установлено')
+    await ensureChampionPhotosTable(pool)
     return new MysqlRepo(drizzle(pool, { schema, mode: 'default' }))
   } catch (e: any) {
     console.warn(

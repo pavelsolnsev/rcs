@@ -31,6 +31,7 @@ interface TournamentData {
     thumbUrl?: string | null
     caption?: string | null
   }[]
+  championPhoto?: { url: string; thumbUrl?: string | null; caption?: string | null } | null
   mediaUsage?: {
     usedBytes: number
     capBytes: number
@@ -105,7 +106,7 @@ const teamMap = computed<Record<number, { id: number; name: string; logoUrl?: st
 
 const champion = computed(() => {
   const cid = data.value?.tournament?.championTeamId
-  return cid ? teamMap.value[cid] : null
+  return cid ? (data.value?.teams.find((t) => t.id === cid) ?? null) : null
 })
 const effectiveGroupQualifiers = computed(() => {
   const raw = Number(data.value?.tournament?.groupQualifiers)
@@ -375,24 +376,14 @@ async function deleteMatch(matchId: number) {
     </div>
 
     <!-- Чемпион -->
-    <div v-if="champion" class="card relative overflow-hidden p-4 sm:p-5">
-      <div
-        class="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-brand/20 blur-3xl"
-      />
-      <div class="relative flex items-center gap-4">
-        <div
-          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-2xl ring-1 ring-brand/30"
-        >
-          🏆
-        </div>
-        <div>
-          <div class="text-xs font-semibold uppercase tracking-widest text-brand">
-            Чемпион турнира
-          </div>
-          <div class="text-xl font-extrabold text-white">{{ champion.name }}</div>
-        </div>
-      </div>
-    </div>
+    <ChampionCard
+      v-if="champion"
+      :tournament-id="data.tournament.id"
+      :team="champion"
+      :photo="data.championPhoto"
+      :can-manage="loggedIn"
+      @changed="refresh"
+    />
 
     <!-- Навигация по разделам -->
     <section class="card p-3">
