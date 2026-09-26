@@ -79,6 +79,12 @@ export function mapBackgroundKey(map?: string | null): string | null {
   return null
 }
 
+/** Фон-заглушка для обложки турнира: стабильно одна и та же карта для одного турнира. */
+export function placeholderMapBackground(seed: number): string {
+  const keys = [...MAP_BG_AVAILABLE]
+  return `/maps/${keys[Math.abs(seed) % keys.length]}.webp`
+}
+
 /** Путь к фоновой картинке карты в public. */
 export function mapBackgroundPath(map?: string | null): string | null {
   const key = mapBackgroundKey(map)

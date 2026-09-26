@@ -107,8 +107,8 @@ function shareMatch(m: {
     :to="`/tournaments/${tournament.id}`"
     class="card group flex flex-col gap-3 overflow-hidden p-4 transition-colors hover:border-brand/60"
   >
-    <TournamentChampionBanner
-      v-if="tournament.champion && tournament.championPhotoUrl"
+    <TournamentCardCover
+      :tournament-id="tournament.id"
       :champion="tournament.champion"
       :photo-url="tournament.championPhotoUrl"
     />
@@ -139,10 +139,6 @@ function shareMatch(m: {
         {{ tournament.teamSize }}
       </span>
     </div>
-    <TournamentChampionBanner
-      v-if="tournament.champion && !tournament.championPhotoUrl"
-      :champion="tournament.champion"
-    />
 
     <div v-if="tournament.liveMatches?.length" class="space-y-1.5">
       <div class="inline-flex items-center rounded-md bg-red-500/15 px-2 py-1 text-[11px] font-semibold text-red-300">
