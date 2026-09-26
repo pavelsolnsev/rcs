@@ -38,9 +38,9 @@ const placeholderBg = computed(() => placeholderMapBackground(props.tournamentId
       <div class="absolute inset-0 bg-gradient-to-br from-brand/25 via-slate-950/60 to-slate-950/90" />
       <div class="absolute inset-0 flex items-center justify-center" :class="champion ? 'pb-16' : ''">
         <img
-          src="/logo.webp"
+          src="/logo-mark.webp"
           alt=""
-          class="h-16 w-16 object-contain opacity-80 drop-shadow-[0_0_24px_rgba(34,211,238,0.35)] sm:h-20 sm:w-20"
+          class="h-20 w-20 object-contain opacity-90 drop-shadow-[0_0_18px_rgba(74,222,128,0.35)] sm:h-24 sm:w-24"
         />
       </div>
     </template>
