@@ -7,7 +7,7 @@ const canonicalUrl = computed(() => `${siteUrl.value}/archive`)
 const ogImage = computed(() => `${siteUrl.value}/og-empty.svg`)
 
 useSeoMeta({
-  title: 'RCS — LAN-турниры CS2',
+  title: 'RCS',
   description: 'Завершённые турниры RCS по CS2: результаты, чемпионы, сетка и медиа.',
   ogType: 'website',
   ogSiteName: String(config.public.siteName || 'RCS'),

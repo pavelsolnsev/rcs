@@ -7,16 +7,16 @@ const canonicalUrl = computed(() => `${siteUrl.value}/`)
 const ogImage = computed(() => `${siteUrl.value}/og-empty.svg`)
 
 useSeoMeta({
-  title: 'RCS — LAN-турниры CS2',
+  title: 'RCS',
   description: 'Актуальные LAN-турниры по CS2: live-матчи, сетка и результаты в реальном времени.',
   ogType: 'website',
   ogSiteName: String(config.public.siteName || 'RCS'),
-  ogTitle: 'RCS — LAN-турниры CS2',
+  ogTitle: 'RCS',
   ogDescription: 'Следи за активными турнирами, live-матчами и прогрессом команд.',
   ogUrl: canonicalUrl,
   ogImage,
   twitterCard: 'summary_large_image',
-  twitterTitle: 'RCS — LAN-турниры CS2',
+  twitterTitle: 'RCS',
   twitterDescription: 'Живые турниры, сетка и результаты по CS2.',
   twitterImage: ogImage,
 })

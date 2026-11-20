@@ -39,8 +39,8 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'RCS — LAN-турниры CS2',
-      titleTemplate: 'RCS — LAN-турниры CS2',
+      title: 'RCS',
+      titleTemplate: 'RCS',
       htmlAttrs: { lang: 'ru' },
       meta: [
         { charset: 'utf-8' },
@@ -61,7 +61,8 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#0a0b0f' },
       ],
       link: [
-        { rel: 'icon', type: 'image/webp', href: '/logo.webp' },
+        { rel: 'icon', type: 'image/x-icon', sizes: '16x16 32x32 48x48', href: '/favicon.ico' },
+        { rel: 'icon', type: 'image/svg+xml', sizes: 'any', href: '/rcs-favicon.svg' },
         { rel: 'apple-touch-icon', href: '/logo.webp' },
 
         // Splash-экраны для iOS (логотип РКС на тёмном фоне) — иначе при запуске

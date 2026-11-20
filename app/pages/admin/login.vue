@@ -6,7 +6,7 @@ const siteUrl = computed(() => String(config.public.siteUrl || 'http://localhost
 const canonicalUrl = computed(() => `${siteUrl.value}/admin/login`)
 
 useSeoMeta({
-  title: 'RCS — LAN-турниры CS2',
+  title: 'RCS',
   robots: 'noindex, nofollow, noarchive, nosnippet',
   googlebot: 'noindex, nofollow',
 })

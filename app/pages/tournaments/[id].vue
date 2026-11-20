@@ -62,7 +62,7 @@ const shareImage = computed(() => {
 const sharePageUrl = computed(() => absoluteUrl(`/tournaments/${id}`))
 
 useSeoMeta({
-  title: 'RCS — LAN-турниры CS2',
+  title: 'RCS',
   description: () => shareDescription.value,
   ogTitle: () => shareTitle.value,
   ogDescription: () => shareDescription.value,
